@@ -1,0 +1,194 @@
+{
+  "name": "Lawyer assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}\n\nContext:\n- Session ID: {{ $json.sessionId }}\n- Timestamp: {{ $now.toISO() }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are Nathan, an expert Indian legal assistant specializing in Indian law, constitution, IPC sections, and criminal law.\n\nWhen users describe their legal situation:\n\n1. EXTRACT KEY INFORMATION:\n- Parties involved (victim, accused, witnesses)\n- What happened (incident details)\n- When and where it occurred\n- Evidence available\n\n2. ANALYZE & CLASSIFY:\n- Criminal/Civil/Constitutional matter\n- Cognizable (serious crimes - theft, assault, fraud) vs Non-cognizable (minor offenses)\n- Bailable vs Non-bailable\n- Jurisdiction (which police station/court)\n\n3. FIR GUIDANCE:\n- Is FIR required? (Yes for cognizable offenses)\n- Which police station to approach\n- Timeline for filing\n- Documents needed\n\n4. PROVIDE STRUCTURED RESPONSE:\n\n**📋 CASE SUMMARY**\n[Brief overview]\n\n**⚖️ LEGAL CLASSIFICATION**\n- Type: Criminal/Civil/Constitutional\n- Cognizable: Yes/No\n- Bailable: Yes/No\n\n**📜 APPLICABLE LAWS**\n- IPC Section(s): [with brief description]\n- Other relevant acts\n\n**🚨 FIR ANALYSIS**\n- Required: Yes/No\n- Jurisdiction: [Police station area]\n- Timeline: [Deadline if any]\n\n**✅ RECOMMENDED ACTIONS**\nImmediate (24-48 hrs): [urgent steps]\nShort-term (1-2 weeks): [documentation, consultation]\nOngoing: [follow-ups]\n\n**🛡️ YOUR RIGHTS**\n[Constitutional and legal rights]\n\n**⚠️ DISCLAIMER**\nThis is legal information, not legal advice. Consult a licensed attorney.\n\n5. USE KNOWLEDGE BASE:\n- Only when you need specific IPC section details or case law\n- For general questions, use your existing knowledge\n\nBe concise, empathetic, and actionable. Ask clarifying questions if information is missing."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        2032,
+        848
+      ],
+      "id": "015498ae-4f43-4742-acdf-dc6131a99eff",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxOutputTokens": 2048,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        1072
+      ],
+      "id": "326a80c5-a25b-49df-99e1-33244fd380ee",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "L0aDflSHcDJoB41e",
+          "name": "Google Gemini(PaLM) Api account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        2080,
+        1072
+      ],
+      "id": "5cb16cea-f05d-4774-8b96-bc51f36d890f",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2432,
+        848
+      ],
+      "id": "d04a4ac5-dd32-490c-b0b0-b9be7624578c",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "👨‍⚖️ **Welcome to Sudheer Gupta - Your Advanced Indian Legal Assistant**\n\nI use natural language understanding to analyze your legal situation and provide actionable guidance.\n\n**I can help you:**\n\n📝 **Understand Your Case**\n• Analyze your situation from your description\n• Extract key facts and legal issues\n• Identify parties, timeline, and jurisdiction\n\n🚨 **FIR Guidance**\n• Determine if FIR is required\n• Assess cognizable vs non-cognizable offenses\n• Explain bailable vs non-bailable classification\n• Guide on which police station to approach\n\n⚖️ **Legal Analysis**\n• Identify applicable IPC sections\n• Explain constitutional rights\n• Provide case law references\n• Assess evidence requirements\n\n✅ **Actionable Suggestions**\n• Prioritized action plan (High/Medium/Low priority)\n• Timeline for each action\n• Documentation requirements\n• Next steps guidance\n\n**How to get started:**\nSimply describe your situation in your own words. I'll understand and analyze it to provide comprehensive legal guidance.\n\nExamples:\n• \"Someone stole my phone yesterday\"\n• \"My landlord is not returning my security deposit\"\n• \"I received threatening messages from someone\"\n• \"There was an accident and I got injured\"\n\n⚠️ **Disclaimer:** I provide legal information and analysis, not legal advice. For specific cases, please consult a licensed attorney.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        1728,
+        848
+      ],
+      "id": "1667406e-d57d-4118-a130-3e2166604d44",
+      "name": "When chat message received",
+      "webhookId": "b56d416c-8328-487d-8032-958c974be2f9"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Search the comprehensive Indian law knowledge base for SPECIFIC legal details, case law, or detailed IPC sections. Use this tool ONLY when you need precise legal citations or detailed case law that you cannot provide from general knowledge. Input should be a specific legal question or topic requiring detailed research.",
+        "method": "POST",
+        "url": "https://prod-1-data.ke.pinecone.io/assistant/chat/lawyers",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Api-key",
+              "value": "pcsk_4crFsq_EsSWtPT7CAv3gA6W86e6HJ8pNdSapmceVco1ucXrA3fdvrYKe7fXWKccthNDPyQ"
+            },
+            {
+              "name": "Content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Pinecone-Api-Version",
+              "value": "2025-10"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $fromAI('legal_query', 'Specific legal question requiring detailed research', 'string') }}\"\n    }\n  ],\n  \"stream\": false,\n  \"model\": \"gpt-4o\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        2224,
+        1072
+      ],
+      "id": "c9119a71-7dc8-4aa7-827f-372e3d202ac9",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "b1c0cbd9-02bd-4ff7-92b8-8272da094c68",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1072f924bc486e624fe99ce8da9489dae979c535b49b241c9083f389da5296ac"
+  },
+  "id": "obksZQp7WRqSORTw",
+  "tags": []
+}
