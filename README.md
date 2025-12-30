@@ -52,3 +52,42 @@ Generate draft documents based on the extracted FIR details, saving hours of man
 ```bash
 git clone [https://github.com/amanyatan/lexmind.git](https://github.com/amanyatan/lexmind.git)
 cd lexmind
+
+FRONTEND SET-UP 
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+BACKEND SET-UP
+
+cd backend/server
+
+# Install dependencies
+npm install
+
+# Create .env and add:
+# GEMINI_API_KEY=your_gemini_api_key
+# PORT=5000
+
+# Start the server
+npm start
+
+PROJECT STRUCTURE
+├── backend/
+│   ├── server/           # Main Node.js API (Port 5000)
+│   ├── chatbot/          # Legacy chatbot logic
+│   └── pdf-extractor/    # Legacy PDF processing tools
+├── src/
+│   ├── components/       # UI Components (Auth, Dashboard, MindMap, etc.)
+│   ├── hooks/            # Custom React hooks (useFIRProcessor)
+│   ├── lib/              # Supabase & configuration
+│   └── types/            # TypeScript definitions
+├── public/               # Static assets
+└── legallaws/            # Reference JSON data for IPC/CrPC
+
+
+
+
+
