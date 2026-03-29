@@ -7,21 +7,21 @@ interface DraftingProps {
 
 export default function Drafting({ firData }: DraftingProps) {
     const draftContent = `
-IN THE COURT OF THE HON'BLE DISTRICT JUDGE, ${firData.district.toUpperCase()}
+IN THE COURT OF THE HON'BLE DISTRICT JUDGE, ${(firData.district || firData.location || "SEARCHED DISTRICT").toUpperCase()}
 
 IN THE MATTER OF:
-State vs. ${firData.accused[0]} & Others
-Police Station: ${firData.policeStation}
-FIR No: ${firData.firNumber}
-U/s: ${firData.sections.join(', ')}
+State vs. ${firData.accused?.[0] || "Accused"} & Others
+Police Station: ${firData.policeStation || "Unknown"}
+FIR No: ${firData.firNumber || "N/A"}
+U/s: ${Array.isArray(firData.sections) ? firData.sections.join(', ') : "N/A"}
 
 Subject: APPLICATION FOR PRELIMINARY REVIEW AND BAIL SYNOPSIS
 
 Respected Sir/Madam,
 
-The applicant respectfully submits that the present FIR filed on ${firData.date} is based on circumstantial evidence as stated in the incident summary: "${firData.incidentSummary}".
+The applicant respectfully submits that the present FIR filed on ${firData.incidentDate || firData.date || "N/A"} is based on circumstantial evidence as stated in the incident summary: "${firData.summary || firData.incidentSummary || "Details unavailable"}".
 
-The complainant, ${firData.complainant}, has failed to provide direct eyewitness testimony connecting the accused specifically to the primary offence under Section 302 IPC.
+The complainant, ${firData.complainant || "Complainant"}, has failed to provide direct eyewitness testimony connecting the accused specifically to the primary offence under Section 302 IPC.
 
 PRAYER:
 It is therefore prayed that this Hon'ble Court may be pleased to take notice of the inconsistencies in the FIR extraction and grant necessary relief as per law.

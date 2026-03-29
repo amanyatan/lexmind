@@ -21,7 +21,7 @@ export default function FIRDetails({ data }: FIRDetailsProps) {
     const detailItems = [
         { icon: FileText, label: 'FIR Number', value: data.firNumber },
         { icon: MapPin, label: 'Police Station', value: data.policeStation || 'N/A' },
-        { icon: Calendar, label: 'Date', value: data.date },
+        { icon: Calendar, label: 'Date', value: data.incidentDate || data.date || 'N/A' },
         { icon: Scale, label: 'Sections', value: data.sections?.join(', ') || 'N/A' },
     ]
 
@@ -112,7 +112,7 @@ export default function FIRDetails({ data }: FIRDetailsProps) {
                                 Incident Summary
                             </h3>
                             <p style={{ lineHeight: 1.7, color: 'var(--text-secondary)', fontSize: isMobile ? '1rem' : '1.1rem' }}>
-                                {data.incidentSummary}
+                                {data.summary || data.incidentSummary}
                             </p>
                         </div>
                     </motion.div>
@@ -182,7 +182,7 @@ export default function FIRDetails({ data }: FIRDetailsProps) {
                                 {data.timeline?.map((item: any, idx: number) => (
                                     <div key={idx} style={{ position: 'relative' }}>
                                         <div style={{ position: 'absolute', left: '-30px', top: '4px', width: '16px', height: '16px', background: 'var(--primary)', borderRadius: '50%', border: '3px solid var(--bg-main)', zIndex: 1 }}></div>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, marginBottom: '2px' }}>{item.time}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, marginBottom: '2px' }}>{item.date || item.time}</div>
                                         <div style={{ fontSize: isMobile ? '0.95rem' : '1.05rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>{item.event}</div>
                                     </div>
                                 ))}
@@ -222,8 +222,7 @@ export default function FIRDetails({ data }: FIRDetailsProps) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {data.evidence?.map((item: any, idx: number) => (
                                     <div key={idx} style={{ padding: '16px', background: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', borderLeft: '4px solid var(--primary)' }}>
-                                        <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>{item.type}</div>
-                                        <div style={{ fontSize: '0.95rem' }}>{item.item}</div>
+                                        <div style={{ fontSize: '0.95rem' }}>{typeof item === 'string' ? item : (item.item || JSON.stringify(item))}</div>
                                     </div>
                                 ))}
                             </div>

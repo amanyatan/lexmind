@@ -76,7 +76,8 @@ export default function EvidenceAnalysis({ onDraftFIR }: EvidenceAnalysisProps) 
                     crime_type: data.crimeType,
                     fault: data.fault,
                     reasoning: data.reasoning,
-                    ipc_sections: data.ipcSections
+                    ipc_sections: data.ipcSections,
+                    file_url: data.fileUrl
                 }]);
             } catch (saveErr) {
                 console.warn("Evidence history table might not exist yet:", saveErr);

@@ -6,3 +6,10 @@ build
 *.log
 .vscode
 .DS_Store
+backend/server/public/uploads
+.gemini
+tmp
+*.mp4
+*.MOV
+*.WEBM
+artifacts/media*

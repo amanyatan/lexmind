@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Film, Calendar, ShieldAlert } from 'lucide-react';
+import { Film, Calendar, ShieldAlert, MessageSquare, Play, VideoOff, Eye, Trash2, AlertCircle } from 'lucide-react';
+import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface EvidenceRecord {
@@ -10,15 +11,22 @@ interface EvidenceRecord {
     fault: string;
     reasoning: string;
     ipc_sections: string[];
+    file_url?: string;
     created_at: string;
 }
 
-export default function EvidenceHistory() {
+interface EvidenceHistoryProps {
+    onChat: (record: EvidenceRecord) => void;
+}
+
+export default function EvidenceHistory({ onChat }: EvidenceHistoryProps) {
     const [history, setHistory] = useState<EvidenceRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [playingId, setPlayingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchHistory = async () => {
+    const fetchHistory = async () => {
+        setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
@@ -33,8 +41,36 @@ export default function EvidenceHistory() {
             }
             setLoading(false);
         };
+    useEffect(() => {
         fetchHistory();
     }, []);
+
+    const handleDelete = async (record: EvidenceRecord) => {
+        if (!window.confirm(`Are you sure you want to delete this case: ${record.file_name}?`)) return;
+
+        setDeletingId(record.id);
+        try {
+            // 1. Delete from physical storage if url exists
+            if (record.file_url) {
+                await axios.post('/api/delete-evidence', { fileUrl: record.file_url });
+            }
+
+            // 2. Delete from Supabase
+            const { error } = await supabase
+                .from('evidence_history')
+                .delete()
+                .eq('id', record.id);
+
+            if (error) throw error;
+
+            setHistory(prev => prev.filter(h => h.id !== record.id));
+        } catch (err: any) {
+            console.error("Deletion failed:", err);
+            alert("Failed to delete forensic case history record.");
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     if (loading) {
         return (
@@ -74,10 +110,48 @@ export default function EvidenceHistory() {
                                         <Calendar size={14} /> Analyzed on {new Date(record.created_at).toLocaleDateString()}
                                     </p>
                                 </div>
-                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '6px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <ShieldAlert size={14} /> {record.crime_type}
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    {record.file_url && (
+                                        <button 
+                                            onClick={() => setPlayingId(playingId === record.id ? null : record.id)}
+                                            style={{ background: 'rgba(var(--primary-rgb), 0.1)', color: 'var(--primary)', padding: '6px 12px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            {playingId === record.id ? <VideoOff size={14} /> : <Play size={14} />} 
+                                            {playingId === record.id ? 'Close Player' : 'Watch Case'}
+                                        </button>
+                                    )}
+                                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '6px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <ShieldAlert size={14} /> {record.crime_type}
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDelete(record)}
+                                        disabled={deletingId === record.id}
+                                        style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', padding: '4px', transition: 'all 0.2s' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                                        onMouseLeave={(e) => e.currentTarget.style.color = '#666'}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
+
+                            <AnimatePresence>
+                                {playingId === record.id && record.file_url && (
+                                    <motion.div 
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        style={{ overflow: 'hidden', borderRadius: '12px', background: 'black' }}
+                                    >
+                                        <video 
+                                            src={record.file_url} 
+                                            controls 
+                                            autoPlay
+                                            style={{ width: '100%', maxHeight: '400px' }}
+                                        />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                             
                             <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: '12px' }}>
                                 <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Primary Fault</h4>
@@ -92,6 +166,31 @@ export default function EvidenceHistory() {
                                             {sec.split(':')[0]}
                                         </span>
                                     ))}
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <button 
+                                        onClick={() => onChat(record)}
+                                        style={{ 
+                                            flex: 1, 
+                                            padding: '12px', 
+                                            background: 'var(--secondary)', 
+                                            color: 'white', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            fontSize: '0.9rem', 
+                                            fontWeight: 600, 
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                    >
+                                        <MessageSquare size={16} /> Discuss in AI Chat
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>

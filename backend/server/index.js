@@ -6,6 +6,9 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const pdfParse = require('pdf-parse');
 // use node-fetch if global fetch is not available (older node versions)
 const fetch = global.fetch || require('node-fetch');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -15,11 +18,35 @@ app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Multer for file uploads
+// Serve static files from public/uploads
+const uploadsDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
+// Error handler for Multer limits
+const handleMulterError = (err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({ error: 'File too large (limit is 100MB)' });
+        }
+        return res.status(400).json({ error: err.message });
+    }
+    next(err);
+};
+
+// Multer for file uploads - allow up to 100MB for large videos
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 100 * 1024 * 1024 } 
+});
+
+app.use(handleMulterError);
 
 // Initialize Gemini Client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -147,9 +174,6 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
 });
 
 const { GoogleAIFileManager } = require('@google/generative-ai/server');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 
 // ============================================
 // ENDPOINT 2: Evidence Analysis (Image/Video)
@@ -183,6 +207,29 @@ app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
         
         Do NOT include markdown formatting wrappers like \`\`\`json. Return pure JSON.
         `;
+
+        // If it's an image and DeepSeek is available, try fallback if Gemini fails
+        const tryDeepSeekImage = async (base64) => {
+            if (!process.env.DEEPSEEK_API_KEY) return null;
+            try {
+                const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}` },
+                    body: JSON.stringify({
+                        model: "deepseek-v3-vision", // If user has access to a vision model!
+                        messages: [{
+                            role: "user",
+                            content: [
+                                { type: "text", text: prompt },
+                                { type: "image_url", image_url: { url: `data:${req.file.mimetype};base64,${base64}` } }
+                            ]
+                        }]
+                    })
+                });
+                if (dsRes.ok) return await dsRes.json();
+            } catch (e) { console.warn("DeepSeek Vision failed:", e); }
+            return null;
+        };
 
         let mediaPart;
 
@@ -237,12 +284,38 @@ app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
         }
 
         console.log("Generating analysis from Gemini...");
-        const result = await model.generateContent([prompt, mediaPart]);
-        const responseText = (await result.response).text();
+        let responseText;
+        try {
+            const result = await model.generateContent([prompt, mediaPart]);
+            responseText = (await result.response).text();
+        } catch (geminiErr) {
+            console.error("Gemini failed, checking for DeepSeek fallback...", geminiErr.message);
+            
+            // If it's an image and Gemini failed (e.g. 429), try DeepSeek
+            if (!req.file.mimetype.startsWith('video/')) {
+                const dsResult = await tryDeepSeekImage(req.file.buffer.toString("base64"));
+                if (dsResult) {
+                    responseText = dsResult.choices[0].message.content;
+                    console.log("DeepSeek fallback successful for image analysis.");
+                } else {
+                    throw geminiErr; // If DS also fails or isn't available, rethrow Gemini error
+                }
+            } else {
+                throw geminiErr; // Video analysis is Gemini-only for now
+            }
+        }
         
         const cleanedText = responseText.replace(/^```(json)?/m, '').replace(/```$/m, '').trim();
 
         const data = JSON.parse(cleanedText);
+        
+        // Save file locally for playback
+        const fileExt = path.extname(req.file.originalname);
+        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${fileExt}`;
+        const finalPath = path.join(uploadsDir, uniqueName);
+        fs.writeFileSync(finalPath, req.file.buffer);
+        data.fileUrl = `/api/uploads/${uniqueName}`;
+
         console.log("Evidence analyzed successfully.");
         res.json(data);
         
@@ -294,6 +367,38 @@ app.post('/chat', async (req, res) => {
 
         if (!model) model = await getModel('gemini-2.5-flash');
 
+        // Check if we should use DeepSeek (if Gemini fails or user explicitly has DEEPSEEK_API_KEY)
+        if (process.env.DEEPSEEK_API_KEY) {
+            console.log("DeepSeek API Key found. Attempting DeepSeek as primary/fallback...");
+            try {
+                const deepSeekRes = await fetch('https://api.deepseek.com/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "deepseek-chat",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            ...history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+                            { role: "user", content: message }
+                        ],
+                        stream: false
+                    })
+                });
+
+                if (deepSeekRes.ok) {
+                    const deepSeekData = await deepSeekRes.json();
+                    console.log("DeepSeek response received successfully.");
+                    return res.json({ output: deepSeekData.choices[0].message.content });
+                }
+                console.warn("DeepSeek API failed, falling back to Gemini...");
+            } catch (dsErr) {
+                console.error("DeepSeek Attempt Error:", dsErr);
+            }
+        }
+
         const result = await model.generateContent({
             contents,
             generationConfig: {
@@ -312,6 +417,32 @@ app.post('/chat', async (req, res) => {
     } catch (err) {
         console.error('Gemini Chat Error:', err.message);
         res.status(500).json({ error: "AI Assistant failed to respond. " + err.message });
+    }
+});
+
+// ============================================
+// ENDPOINT 4: Delete Evidence
+// ============================================
+app.post('/delete-evidence', async (req, res) => {
+    try {
+        const { fileUrl } = req.body;
+        if (!fileUrl) return res.status(400).json({ error: 'fileUrl is required' });
+
+        // Security check: only allow deleting from /uploads/
+        if (!fileUrl.includes('/uploads/')) return res.status(403).json({ error: 'Invalid file path' });
+
+        const fileName = fileUrl.split('/').pop();
+        const filePath = path.join(uploadsDir, fileName);
+
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`Deleted file: ${fileName}`);
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Delete Error:", err);
+        res.status(500).json({ error: "Failed to delete physical file." });
     }
 });
 

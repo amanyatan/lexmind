@@ -467,15 +467,15 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                                     location: "Unknown",
                                     policeStation: "Unknown",
                                     sections: analysisData.ipcSections || [],
-                                    incidentSummary: `FORENSIC VIDEO/IMAGE PREDICTION OVERVIEW:\n\nCrime Type: ${analysisData.crimeType}\n\nFault Analysis: ${analysisData.fault}\n\nReasoning: ${analysisData.reasoning}`,
+                                    summary: `FORENSIC VIDEO/IMAGE PREDICTION OVERVIEW:\n\nCrime Type: ${analysisData.crimeType}\n\nFault Analysis: ${analysisData.fault}\n\nReasoning: ${analysisData.reasoning}`,
                                     accused: ["Unknown"],
                                     witnesses: ["Unknown"],
                                     complainant: user.user_metadata?.full_name || "Self",
-                                    evidence: [{ type: "Visual File Upload", item: "Video/Image Analysis Provided by AI" }],
+                                    evidence: ["Visual File Upload: " + (analysisData.fileUrl || "Video/Image Analysis")],
                                     ipcProvisions: analysisData.ipcSections || [],
                                     legalStrategy: ["Submit visual evidence to authorities immediately.", "Formalize FIR text based on AI structural deductions."],
                                     defenseStrategy: [],
-                                    timeline: [{ time: new Date().toLocaleDateString(), event: "Accident/Crime Captured on Media" }]
+                                    timeline: [{ date: new Date().toLocaleDateString(), event: "Accident/Crime Captured on Media" }]
                                 } as any);
                                 
                                 if (analysisData._action === 'CHAT') {
@@ -489,7 +489,26 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
 
                     {activeTab === 'evidence_history' && (
                         <motion.div key="evidence-vault" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
-                            <EvidenceHistory />
+                            <EvidenceHistory onChat={(record) => {
+                                setFirData({
+                                    isFIR: true,
+                                    firNumber: "VAULT-" + record.file_name.substring(0, 8),
+                                    incidentDate: new Date(record.created_at).toLocaleDateString(),
+                                    location: "Unknown",
+                                    policeStation: "Unknown",
+                                    sections: record.ipc_sections || [],
+                                    summary: `VAULTED FORENSIC ANALYSIS:\n\nCrime Type: ${record.crime_type}\n\nFault Analysis: ${record.fault}\n\nReasoning: ${record.reasoning}`,
+                                    accused: ["Unknown"],
+                                    witnesses: ["Unknown"],
+                                    complainant: user.user_metadata?.full_name || "Self",
+                                    evidence: ["Archived Analysis Record: " + record.file_name],
+                                    ipcProvisions: record.ipc_sections || [],
+                                    legalStrategy: ["Based on archived fault analysis: " + record.fault],
+                                    defenseStrategy: [],
+                                    timeline: [{ date: new Date(record.created_at).toLocaleDateString(), event: "Forensic Analysis Created" }]
+                                } as any);
+                                setActiveTab('chat');
+                            }} />
                         </motion.div>
                     )}
 

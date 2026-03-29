@@ -239,9 +239,9 @@ export default function ChatAssistant({ firData, user }: ChatAssistantProps) {
         }
     }
 
-    // Auto-trigger an interpretation when arriving from Evidence tool
+    // Auto-trigger an interpretation when arriving from Evidence tool or Vault
     useEffect(() => {
-        if (activeContext?.firNumber === 'EVIDENCE-BASED' && messages.length === 0 && !isTyping && !currentConversationId) {
+        if ((activeContext?.firNumber === 'EVIDENCE-BASED' || activeContext?.firNumber?.startsWith('VAULT-')) && messages.length === 0 && !isTyping && !currentConversationId) {
             const autoTrigger = async () => {
                 const autoMsg = "Please interpret the forensic video/image analysis provided in my case context. Explain what happened, whose fault it is, and detail the relevant IPC/BNS sections.";
                 

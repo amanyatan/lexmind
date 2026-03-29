@@ -6,7 +6,7 @@ import ThemeToggle from './ThemeToggle'
 import MainNavbar from './MainNavbar'
 import ReactFlow, { Background, Node, Edge, MarkerType, useNodesState, useEdgesState, Connection, addEdge } from 'reactflow'
 import 'reactflow/dist/style.css'
-import mainLogo from '/@fs/C:/Users/AMAN YATAN/.gemini/antigravity/brain/118fd0c5-c657-4309-b437-04f76d7d21ed/media__1774739657314.png'
+import mainLogo from '../assets/logo.svg'
 
 interface LandingPageProps {
     onGetStarted: () => void
