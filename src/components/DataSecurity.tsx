@@ -1,12 +1,15 @@
 import { motion } from 'framer-motion'
-import { Shield, Lock, Eye, Database, Server, ChevronLeft } from 'lucide-react'
+import { Shield, Lock, Eye, Database, Server } from 'lucide-react'
+import MainNavbar from './MainNavbar'
 
 interface DataSecurityProps {
-    onBack: () => void
+    onNavigate: (page: 'landing' | 'security' | 'faq') => void
+    onGetStarted: () => void
     theme: 'dark' | 'light'
+    toggleTheme: () => void
 }
 
-export default function DataSecurity({ onBack, theme }: DataSecurityProps) {
+export default function DataSecurity({ onNavigate, onGetStarted, theme, toggleTheme }: DataSecurityProps) {
     const sections = [
         {
             icon: Lock,
@@ -31,21 +34,15 @@ export default function DataSecurity({ onBack, theme }: DataSecurityProps) {
     ]
 
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', color: 'var(--text-primary)', padding: '40px 24px' }}>
+        <div style={{ minHeight: '100vh', background: 'transparent', color: 'var(--text-primary)', padding: '120px 24px 40px' }}>
+            <MainNavbar
+                onGetStarted={onGetStarted}
+                onNavigate={onNavigate}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                currentPage="security"
+            />
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                <motion.button
-                    onClick={onBack}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        background: 'none', border: 'none', color: 'var(--primary)',
-                        cursor: 'pointer', marginBottom: '40px', fontSize: '1rem', fontWeight: 600
-                    }}
-                >
-                    <ChevronLeft size={20} /> Back to Home
-                </motion.button>
-
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

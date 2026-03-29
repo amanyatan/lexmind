@@ -14,7 +14,7 @@
   flex-direction: column;
   gap: 40px;
   border-radius: 24px;
-  background: rgba(var(--card-bg-rgb), 0.7);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);

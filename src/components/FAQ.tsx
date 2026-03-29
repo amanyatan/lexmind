@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, ChevronLeft, HelpCircle } from 'lucide-react'
+import { ChevronDown, HelpCircle } from 'lucide-react'
+import MainNavbar from './MainNavbar'
 
 interface FAQProps {
-    onBack: () => void
+    onNavigate: (page: 'landing' | 'security' | 'faq') => void
+    onGetStarted: () => void
     theme: 'dark' | 'light'
+    toggleTheme: () => void
 }
 
 const faqData = [
@@ -30,25 +33,19 @@ const faqData = [
     }
 ]
 
-export default function FAQ({ onBack, theme }: FAQProps) {
+export default function FAQ({ onNavigate, onGetStarted, theme, toggleTheme }: FAQProps) {
     const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
     return (
-        <div style={{ minHeight: '100vh', background: 'transparent', color: 'var(--text-primary)', padding: '40px 24px' }}>
+        <div style={{ minHeight: '100vh', background: 'transparent', color: 'var(--text-primary)', padding: '120px 24px 40px' }}>
+            <MainNavbar
+                onGetStarted={onGetStarted}
+                onNavigate={onNavigate}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                currentPage="faq"
+            />
             <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                <motion.button
-                    onClick={onBack}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        background: 'none', border: 'none', color: 'var(--primary)',
-                        cursor: 'pointer', marginBottom: '40px', fontSize: '1rem', fontWeight: 600
-                    }}
-                >
-                    <ChevronLeft size={20} /> Back to Home
-                </motion.button>
-
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

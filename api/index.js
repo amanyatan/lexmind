@@ -1,14 +1,13 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const pdfParse = require('pdf-parse');
-// use node-fetch if global fetch is not available (older node versions)
-const fetch = global.fetch || require('node-fetch');
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import pdfParse from 'pdf-parse';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
@@ -23,39 +22,18 @@ const upload = multer({ storage });
 
 // Initialize Gemini Client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Helper to get model (allows fallback)
-async function getModel(modelName = 'gemini-2.5-flash') {
-    try {
-        return genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.1
-            }
-        });
-    } catch (e) {
-        console.warn(`Model ${modelName} not available, falling back to gemini-1.5-flash`);
-        return genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.1
-            }
-        });
+const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1
     }
-}
-
-// Global model instance
-let model;
-(async () => {
-    model = await getModel('gemini-2.5-flash');
-})();
+});
 
 // ============================================
 // ENDPOINT 1: PDF/FIR Analysis
 // ============================================
-app.post('/analyze-fir', upload.single('data'), async (req, res) => {
+app.post('/api/analyze-fir', upload.single('data'), async (req, res) => {
     try {
         if (!req.file) {
             console.error('No file received');
@@ -114,8 +92,6 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
         ${extractedText}
         `;
 
-        if (!model) model = await getModel('gemini-2.5-flash');
-
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
@@ -146,113 +122,10 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
     }
 });
 
-const { GoogleAIFileManager } = require('@google/generative-ai/server');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-
 // ============================================
-// ENDPOINT 2: Evidence Analysis (Image/Video)
+// ENDPOINT 2: Chat / AI Assistant
 // ============================================
-app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No media file uploaded' });
-        }
-        
-        console.log(`Analyzing evidence: ${req.file.originalname} (${req.file.mimetype}) - ${req.file.size} bytes`);
-        
-        if (!model) model = await getModel('gemini-1.5-flash');
-
-        const prompt = `
-        You are a highly skilled forensic traffic anaylst and criminal legal expert in India. 
-        Analyze the provided image or video evidence of an accident or crime scene.
-        
-        Determine whose fault it is, exactly what happened, the severity, and what Indian Penal Code (IPC) or Bharatiya Nyaya Sanhita (BNS) sections apply.
-        
-        Respond ONLY with a beautifully structured JSON that matches the following format:
-        {
-            "fault": "Clear statement of who is likely at fault (e.g., The driver of the red car, The pedestrian).",
-            "reasoning": "A highly detailed, step-by-step forensic analysis of what the evidence shows.",
-            "crimeType": "Short category (e.g., Severe Traffic Collision, Hit and Run, Vandalism).",
-            "ipcSections": [
-                "IPC Section 279: Rash driving or riding on a public way",
-                "IPC Section 337: Causing hurt by act endangering life"
-            ]
-        }
-        
-        Do NOT include markdown formatting wrappers like \`\`\`json. Return pure JSON.
-        `;
-
-        let mediaPart;
-
-        if (req.file.mimetype.startsWith('video/')) {
-            console.log("Video detected. Using Google AI File API...");
-            const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
-            const tempFilePath = path.join(os.tmpdir(), `temp_vid_${Date.now()}_${req.file.originalname}`);
-            
-            // Write to disk temporarily for the SDK
-            fs.writeFileSync(tempFilePath, req.file.buffer);
-            
-            try {
-                const uploadResult = await fileManager.uploadFile(tempFilePath, {
-                    mimeType: req.file.mimetype,
-                    displayName: req.file.originalname,
-                });
-                
-                console.log(`Uploaded to Gemini: ${uploadResult.file.uri}`);
-                
-                // Wait for video processing on Google's servers
-                let fileInfo = await fileManager.getFile(uploadResult.file.name);
-                while (fileInfo.state === "PROCESSING") {
-                    console.log('Waiting for video processing...');
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                    fileInfo = await fileManager.getFile(uploadResult.file.name);
-                }
-                
-                if (fileInfo.state === "FAILED") {
-                    throw new Error("Google AI rejected the video file.");
-                }
-                
-                mediaPart = {
-                    fileData: {
-                        fileUri: uploadResult.file.uri,
-                        mimeType: uploadResult.file.mimeType
-                    }
-                };
-            } finally {
-                // Ensure cleanup
-                if (fs.existsSync(tempFilePath)) {
-                    fs.unlinkSync(tempFilePath);
-                }
-            }
-        } else {
-            // Images use inline data
-            mediaPart = {
-                inlineData: {
-                    data: req.file.buffer.toString("base64"),
-                    mimeType: req.file.mimetype
-                }
-            };
-        }
-
-        console.log("Generating analysis from Gemini...");
-        const result = await model.generateContent([prompt, mediaPart]);
-        const responseText = (await result.response).text();
-        
-        const cleanedText = responseText.replace(/^```(json)?/m, '').replace(/```$/m, '').trim();
-
-        const data = JSON.parse(cleanedText);
-        console.log("Evidence analyzed successfully.");
-        res.json(data);
-        
-    } catch (err) {
-        console.error("Error in Evidence analysis:", err);
-        res.status(500).json({ error: "Failed to process visual evidence: " + err.message });
-    }
-});
-
-app.post('/chat', async (req, res) => {
+app.post('/api/chat', async (req, res) => {
     try {
         const { message, history = [], firContext = null } = req.body;
         if (!message) {
@@ -262,6 +135,7 @@ app.post('/chat', async (req, res) => {
         console.log("Generating AI response with Gemini...");
 
         // Construct conversation history for Gemini
+        // LexMind Assistant identity and context
         const systemPrompt = `
         You are LexMind AI, a specialized legal assistant for Indian criminal law. 
         Your goal is to assist lawyers with case analysis, legal strategy, and procedural questions.
@@ -292,14 +166,12 @@ app.post('/chat', async (req, res) => {
             parts: [{ text: `${systemPrompt}\n\nUser Question: ${message}` }]
         });
 
-        if (!model) model = await getModel('gemini-2.5-flash');
-
         const result = await model.generateContent({
             contents,
             generationConfig: {
-                temperature: 0.7,
+                temperature: 0.7, // Higher for chat
                 maxOutputTokens: 1000,
-                responseMimeType: 'text/plain'
+                responseMimeType: 'text/plain' // Chat usually returns plain text
             }
         });
 
@@ -318,14 +190,8 @@ app.post('/chat', async (req, res) => {
 // ============================================
 // Health Check
 // ============================================
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'LexMind Backend Running (Gemini)' });
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', message: 'LexMind Backend Running on Vercel (Gemini 2.5 Flash)' });
 });
 
-// Start Server
-app.listen(port, '0.0.0.0', () => {
-    console.log(`\n🚀 LexMind Backend listening on http://localhost:${port}`);
-    console.log(`   - POST /analyze-fir  → FIR PDF Analysis`);
-    console.log(`   - POST /chat         → AI Chat Assistant`);
-    console.log(`   - GET  /health       → Health Check\n`);
-});
+export default app;

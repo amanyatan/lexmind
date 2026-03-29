@@ -1,7 +1,8 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function testModels() {
-    const apiKey = "AIzaSyDxCCuESsWciTUoJiST6XqVWYqCzrYWM78";
+    require('dotenv').config({ path: 'C:\\Users\\AMAN YATAN\\.gemini\\antigravity\\scratch\\lex-mind\\backend\\server\\.env' });
+    const apiKey = process.env.GEMINI_API_KEY || "YOUR_API_KEY_HERE";
     const genAI = new GoogleGenerativeAI(apiKey);
 
     // List of models to try

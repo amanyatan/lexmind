@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { Scale, Mail, Lock, Loader2, Eye, EyeOff, User as UserIcon, ArrowLeft, Check, X } from 'lucide-react'
+import { Mail, Lock, Loader2, Eye, EyeOff, User as UserIcon, ArrowLeft, Check, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import logo from '/@fs/C:/Users/AMAN YATAN/.gemini/antigravity/brain/118fd0c5-c657-4309-b437-04f76d7d21ed/media__1774739657314.png'
 
 interface AuthProps {
     onBack?: () => void;
@@ -35,7 +36,7 @@ export default function Auth({ onBack }: AuthProps) {
             // @ts-ignore
             if (window.VANTA) {
                 // @ts-ignore
-                setVantaEffect(window.VANTA.WAVES({
+                setVantaEffect(window.VANTA.NET({
                     el: vantaRef.current,
                     mouseControls: true,
                     touchControls: true,
@@ -44,11 +45,11 @@ export default function Auth({ onBack }: AuthProps) {
                     minWidth: 200.00,
                     scale: 1.00,
                     scaleMobile: 1.00,
-                    color: 0x7a8092,
-                    shininess: 28.00,
-                    waveHeight: 50.00,
-                    waveSpeed: 1.65,
-                    zoom: 0.9
+                    color: '#3f51b5',
+                    backgroundColor: '#1b263b',
+                    points: 10.00,
+                    maxDistance: 20.00,
+                    spacing: 15.00
                 }))
             }
         }
@@ -124,9 +125,9 @@ export default function Auth({ onBack }: AuthProps) {
     };
 
     return (
-        <div className="auth-wrapper" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '16px' : '24px', position: 'relative', background: 'transparent', overflow: 'hidden' }}>
+        <div className="auth-wrapper" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '16px' : '24px', position: 'relative', background: '#1b263b', overflow: 'hidden' }}>
             {/* Vanta Background Container restored for extra premium feel */}
-            <div ref={vantaRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, filter: 'brightness(0.6) contrast(1.1)' }} />
+            <div ref={vantaRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }} />
 
             {/* Back to Landing Page Button */}
             {onBack && (
@@ -176,20 +177,23 @@ export default function Auth({ onBack }: AuthProps) {
             >
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
                     <motion.div
-                        initial={{ rotate: -10, scale: 0.8 }}
-                        animate={{ rotate: 0, scale: 1 }}
-                        transition={{ type: "spring", bounce: 0.5 }}
-                        style={{
-                            display: 'inline-flex',
-                            padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.25), rgba(var(--primary-rgb), 0.1))',
-                            borderRadius: '24px',
-                            marginBottom: '20px',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            boxShadow: '0 0 20px rgba(var(--primary-rgb), 0.2)'
-                        }}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: "spring", bounce: 0.4 }}
+                        style={{ marginBottom: '24px' }}
                     >
-                        <Scale size={32} color="#ffffff" />
+                        <img
+                            src={logo}
+                            alt="LexMind"
+                            style={{
+                                height: '90px',
+                                width: 'auto',
+                                margin: '0 auto',
+                                display: 'block',
+                                mixBlendMode: 'screen',
+                                filter: 'invert(1) hue-rotate(180deg) drop-shadow(0 4px 16px rgba(0,0,0,0.3))'
+                            }}
+                        />
                     </motion.div>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '8px', color: '#ffffff', letterSpacing: '-0.03em' }}>
                         {isSignUp ? 'Join LexMind' : 'Welcome Back'}

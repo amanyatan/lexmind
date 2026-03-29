@@ -16,6 +16,7 @@
   --glass-border: rgba(255, 255, 255, 0.1);
   --font-main: 'Inter', system-ui, -apple-system, sans-serif;
   --font-heading: 'Outfit', sans-serif;
+  --muted-bg: rgba(255, 255, 255, 0.05);
   
   /* Responsive Spacing Tokens */
   --space-xs: 0.5rem;
@@ -30,20 +31,21 @@
 }
 
 [data-theme='light'] {
-  --bg-main: #f8fafc;
-  --card-bg: #ffffff;
-  --border: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --glass-bg: rgba(255, 255, 255, 0.8);
-  --glass-border: #e2e8f0;
+  --bg-main: #ebf0f5;
+  --card-bg: #f8fafc;
+  --border: #d1d5db;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --glass-bg: #ffffff;
+  --glass-border: #cbd5e1;
   --primary: #0369a1;
   --secondary: #b91c1c;
   --accent: #c2410c;
+  --muted-bg: rgba(0, 0, 0, 0.05);
   
   --primary-rgb: 3, 105, 161;
-  --bg-rgb: 248, 250, 252;
-  --card-bg-rgb: 255, 255, 255;
+  --bg-rgb: 235, 240, 245;
+  --card-bg-rgb: 248, 250, 252;
 }
 
 * {

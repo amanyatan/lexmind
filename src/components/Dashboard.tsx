@@ -22,7 +22,8 @@ import {
     Calendar,
     AtSign,
     Edit2,
-    CheckCircle2
+    CheckCircle2,
+    Database
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDropzone } from 'react-dropzone'
@@ -31,6 +32,8 @@ import FIRDetails from './FIRDetails'
 import Drafting from './Drafting'
 import ChatAssistant from './ChatAssistant'
 import FIRHistory from './FIRHistory'
+import EvidenceAnalysis from './EvidenceAnalysis'
+import EvidenceHistory from './EvidenceHistory'
 import { FIRMetadata } from '../types'
 import { useFIRProcessor } from '../hooks/useFIRProcessor'
 import ThemeToggle from './ThemeToggle'
@@ -44,12 +47,13 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) {
-    const [activeTab, setActiveTab] = useState<'upload' | 'details' | 'mindmap' | 'drafting' | 'chat' | 'history' | 'profile'>('upload')
+    const [activeTab, setActiveTab] = useState<'upload' | 'evidence' | 'evidence_history' | 'details' | 'mindmap' | 'drafting' | 'chat' | 'history' | 'profile'>('upload')
     const [firData, setFirData] = useState<FIRMetadata | null>(null)
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
     const [isEditingAvatar, setIsEditingAvatar] = useState(false)
     const [updatingAvatar, setUpdatingAvatar] = useState(false)
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     // Use custom hook for processing logic
     const { processFIR, isProcessing, processingStep, processingMessage, error, resetError } = useFIRProcessor(user.id);
@@ -89,12 +93,14 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
     })
 
     const navItems = [
-        { id: 'upload', label: 'Upload', icon: Upload },
-        { id: 'history', label: 'Past', icon: History },
+        { id: 'upload', label: 'Upload FIR', icon: Upload },
+        { id: 'history', label: 'Past Cases', icon: History },
+        { id: 'evidence', label: 'Evidence Tool', icon: FileText },
+        { id: 'evidence_history', label: 'Evidence Vault', icon: Database },
         { id: 'details', label: 'Analysis', icon: FileText, disabled: !firData },
         { id: 'mindmap', label: 'Map', icon: MapIcon, disabled: !firData },
         { id: 'drafting', label: 'Draft', icon: Layout, disabled: !firData },
-        { id: 'chat', label: 'AI', icon: MessageSquare },
+        { id: 'chat', label: 'AI Chat', icon: MessageSquare },
         { id: 'profile', label: 'Profile', icon: UserIcon },
     ]
 
@@ -158,7 +164,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                             alignItems: 'center',
                             gap: '12px',
                             padding: isCollapsed ? '0' : '16px',
-                            background: activeTab === 'profile' ? 'rgba(var(--primary-rgb), 0.1)' : 'rgba(255,255,255,0.03)',
+                            background: activeTab === 'profile' ? 'rgba(var(--primary-rgb), 0.1)' : 'var(--muted-bg)',
                             borderRadius: '16px',
                             cursor: 'pointer',
                             border: activeTab === 'profile' ? '1px solid var(--primary)' : '1px solid transparent',
@@ -243,20 +249,92 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
             {/* Mobile Bottom Navigation */}
             {isMobile && (
                 <div className="mobile-nav">
-                    {navItems.map((item) => (
+                    {navItems.filter(i => ['upload', 'evidence', 'chat'].includes(i.id)).map((item) => (
                         <button
                             key={item.id}
                             disabled={item.disabled}
-                            onClick={() => setActiveTab(item.id as any)}
+                            onClick={() => { setActiveTab(item.id as any); setMobileMenuOpen(false); }}
                             className={`mobile-nav-item ${activeTab === item.id ? 'active' : ''}`}
                             style={{ opacity: item.disabled ? 0.3 : 1 }}
                         >
-                            <item.icon size={22} />
-                            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{item.label}</span>
+                            <item.icon size={24} />
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>{item.id === 'upload' ? 'Documents' : item.id === 'evidence' ? 'Evidence' : 'AI Chat'}</span>
                         </button>
                     ))}
+                    <button
+                        onClick={() => setMobileMenuOpen(true)}
+                        className={`mobile-nav-item ${mobileMenuOpen ? 'active' : ''}`}
+                    >
+                        <Menu size={24} />
+                        <span style={{ fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>Menu</span>
+                    </button>
                 </div>
             )}
+
+            {/* Mobile Full Screen Menu Overlay */}
+            <AnimatePresence>
+                {isMobile && mobileMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: '100%' }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: '100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            zIndex: 9999,
+                            background: 'rgba(1, 22, 39, 0.95)',
+                            backdropFilter: 'blur(20px)',
+                            padding: '32px 24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflowY: 'auto'
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+                            <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white' }}>LexMind Menu</h2>
+                            <button
+                                onClick={() => setMobileMenuOpen(false)}
+                                style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '12px', borderRadius: '50%', display: 'flex' }}
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            {navItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    disabled={item.disabled}
+                                    onClick={() => { setActiveTab(item.id as any); setMobileMenuOpen(false); }}
+                                    style={{
+                                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px',
+                                        padding: '24px 20px',
+                                        background: activeTab === item.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                        border: activeTab === item.id ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '24px',
+                                        color: activeTab === item.id ? 'white' : 'var(--text-primary)',
+                                        opacity: item.disabled ? 0.3 : 1,
+                                        boxShadow: activeTab === item.id ? '0 10px 25px rgba(0, 95, 115, 0.4)' : 'none'
+                                    }}
+                                >
+                                    <item.icon size={28} opacity={item.disabled ? 0.5 : 1} />
+                                    <span style={{ fontSize: '1.05rem', fontWeight: 600, textAlign: 'left', lineHeight: 1.2 }}>{item.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                        
+                        <div style={{ marginTop: 'auto', paddingTop: '40px', display: 'flex', gap: '12px' }}>
+                            <button onClick={toggleTheme} style={{ flex: 1, padding: '16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', display: 'flex', justifyContent: 'center', color: 'white' }}>
+                                {theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}
+                            </button>
+                            <button onClick={() => supabase.auth.signOut()} style={{ flex: 1, padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '16px', display: 'flex', justifyContent: 'center', color: '#ef4444' }}>
+                                <LogOut size={24} />
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Main Content */}
             <div className="main-content">
@@ -379,6 +457,42 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                         </motion.div>
                     )}
 
+                    {activeTab === 'evidence' && (
+                        <motion.div key="evidence" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                            <EvidenceAnalysis onDraftFIR={(analysisData) => {
+                                setFirData({
+                                    isFIR: true,
+                                    firNumber: "EVIDENCE-BASED",
+                                    incidentDate: new Date().toLocaleDateString(),
+                                    location: "Unknown",
+                                    policeStation: "Unknown",
+                                    sections: analysisData.ipcSections || [],
+                                    incidentSummary: `FORENSIC VIDEO/IMAGE PREDICTION OVERVIEW:\n\nCrime Type: ${analysisData.crimeType}\n\nFault Analysis: ${analysisData.fault}\n\nReasoning: ${analysisData.reasoning}`,
+                                    accused: ["Unknown"],
+                                    witnesses: ["Unknown"],
+                                    complainant: user.user_metadata?.full_name || "Self",
+                                    evidence: [{ type: "Visual File Upload", item: "Video/Image Analysis Provided by AI" }],
+                                    ipcProvisions: analysisData.ipcSections || [],
+                                    legalStrategy: ["Submit visual evidence to authorities immediately.", "Formalize FIR text based on AI structural deductions."],
+                                    defenseStrategy: [],
+                                    timeline: [{ time: new Date().toLocaleDateString(), event: "Accident/Crime Captured on Media" }]
+                                } as any);
+                                
+                                if (analysisData._action === 'CHAT') {
+                                    setActiveTab('chat');
+                                } else {
+                                    setActiveTab('drafting');
+                                }
+                            }} />
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'evidence_history' && (
+                        <motion.div key="evidence-vault" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                            <EvidenceHistory />
+                        </motion.div>
+                    )}
+
                     {activeTab === 'details' && firData && (
                         <motion.div key="details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                             <FIRDetails data={firData} />
@@ -399,7 +513,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
 
                     {activeTab === 'chat' && (
                         <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ height: 'calc(100vh - 120px)' }}>
-                            <ChatAssistant firData={firData} />
+                            <ChatAssistant firData={firData} user={user} />
                         </motion.div>
                     )}
 
@@ -425,7 +539,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                         >
                             <div className="glass-card" style={{ padding: isMobile ? '24px' : '48px', borderRadius: '32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
                                 {/* Profile Header Background */}
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '140px', background: 'linear-gradient(135deg, var(--primary), var(--accent))', opacity: 0.15, zIndex: 0 }} />
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '140px', background: 'var(--primary)', opacity: 0.15, zIndex: 0 }} />
 
                                 <div style={{ position: 'relative', zIndex: 1 }}>
                                     <div style={{
@@ -478,7 +592,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                                                 maxHeight: '200px',
                                                 overflowY: 'auto',
                                                 padding: '12px',
-                                                background: 'rgba(255,255,255,0.03)',
+                                                background: 'var(--muted-bg)',
                                                 borderRadius: '20px',
                                                 border: '1px solid var(--border)'
                                             }}>

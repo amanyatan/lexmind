@@ -179,7 +179,7 @@ export default function MindMap({ data }: MindMapProps) {
                     nodeColor={(n: Node) => {
                         if (n.id === 'root') return 'var(--primary)'
                         if (n.id.startsWith('branch-')) return 'var(--accent)'
-                        return 'rgba(255,255,255,0.1)'
+                        return 'var(--muted-bg)'
                     }}
                     maskColor="rgba(0,0,0,0.1)"
                     style={{ background: 'var(--card-bg)', borderRadius: '12px', border: '1px solid var(--border)' }}

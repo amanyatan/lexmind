@@ -69,9 +69,31 @@ function App() {
             case 'auth':
                 return <Auth onBack={() => setCurrentView('landing')} />;
             case 'security':
-                return <DataSecurity onBack={() => setCurrentView('landing')} theme={theme} />;
+                return (
+                    <DataSecurity
+                        onNavigate={(page) => {
+                            if (page === 'landing') setCurrentView('landing')
+                            if (page === 'security') setCurrentView('security')
+                            if (page === 'faq') setCurrentView('faq')
+                        }}
+                        onGetStarted={() => setCurrentView('auth')}
+                        theme={theme}
+                        toggleTheme={toggleTheme}
+                    />
+                );
             case 'faq':
-                return <FAQ onBack={() => setCurrentView('landing')} theme={theme} />;
+                return (
+                    <FAQ
+                        onNavigate={(page) => {
+                            if (page === 'landing') setCurrentView('landing')
+                            if (page === 'security') setCurrentView('security')
+                            if (page === 'faq') setCurrentView('faq')
+                        }}
+                        onGetStarted={() => setCurrentView('auth')}
+                        theme={theme}
+                        toggleTheme={toggleTheme}
+                    />
+                );
             default:
                 return (
                     <LandingPage

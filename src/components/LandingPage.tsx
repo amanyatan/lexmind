@@ -1,10 +1,12 @@
 
-import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { FileText, MessageSquare, Map, Shield, X, Menu, Sun, Moon, Search, FileSignature, ArrowRight, Lock, Scale } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue } from 'framer-motion'
+import { FileText, MessageSquare, Map, Shield, Sun, Moon, Search, FileSignature, ArrowRight, Lock, Scale } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
+import MainNavbar from './MainNavbar'
 import ReactFlow, { Background, Node, Edge, MarkerType, useNodesState, useEdgesState, Connection, addEdge } from 'reactflow'
 import 'reactflow/dist/style.css'
+import mainLogo from '/@fs/C:/Users/AMAN YATAN/.gemini/antigravity/brain/118fd0c5-c657-4309-b437-04f76d7d21ed/media__1774739657314.png'
 
 interface LandingPageProps {
     onGetStarted: () => void
@@ -17,7 +19,7 @@ interface LandingPageProps {
 // --- Animation Components (Preserving existing ones for Features section) ---
 
 const ScanningAnimation = () => (
-    <div style={{ position: 'relative', width: '200px', height: '260px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: '200px', height: '260px', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', margin: '0 auto' }}>
         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ width: '60%', height: '12px', background: 'var(--border)', borderRadius: '6px' }} />
             <div style={{ width: '80%', height: '8px', background: 'var(--border)', borderRadius: '4px', opacity: 0.6 }} />
@@ -174,7 +176,7 @@ const FeatureNetworkGraph = () => {
 
 
 const ChatAnimation = () => (
-    <div style={{ width: '260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ width: '100%', maxWidth: '300px', display: 'flex', flexDirection: 'column', gap: '12px', margin: '0 auto' }}>
         <motion.div
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -205,7 +207,7 @@ const ChatAnimation = () => (
 )
 
 const DraftingAnimation = () => (
-    <div style={{ position: 'relative', width: '220px', height: '280px', background: 'var(--card-bg)', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: '220px', height: '280px', background: 'var(--card-bg)', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid var(--border)', margin: '0 auto' }}>
         <div style={{ padding: '20px' }}>
             <motion.div
                 initial={{ width: 0 }}
@@ -239,21 +241,71 @@ const DraftingAnimation = () => (
     </div>
 )
 
+
+// Feature card — own component so hooks are called at top level, not in .map()
+interface FeatureCardProps {
+    feature: { title: string; description: string; icon: any; animation: React.ReactNode; gradient: string }
+    idx: number
+    isMobile: boolean
+    scrollYProgress: any
+}
+const FeatureCard = ({ feature, idx, isMobile, scrollYProgress }: FeatureCardProps) => {
+    const fromX = idx % 2 === 0 ? -80 : 80
+    const start = 0.25 + idx * 0.08
+    const end   = 0.45 + idx * 0.08
+    const cardX   = useTransform(scrollYProgress, [start, end], [fromX, 0])
+    const cardOp  = useTransform(scrollYProgress, [start, Math.min(end - 0.03, 0.98)], [0, 1])
+    const smoothX = useSpring(cardX, { stiffness: 55, damping: 20 })
+    return (
+        <motion.div
+            style={{
+                x: isMobile ? 0 : smoothX,
+                opacity: isMobile ? 1 : cardOp,
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                gap: isMobile ? '32px' : '60px',
+                alignItems: 'center',
+                direction: idx % 2 === 1 ? 'rtl' : 'ltr',
+                willChange: 'transform, opacity'
+            }}
+        >
+            <div style={{ textAlign: isMobile ? 'center' : 'left', direction: 'ltr' }}>
+                <div style={{ width: '48px', height: '48px', background: feature.gradient, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', marginInline: isMobile ? 'auto' : '0' }}>
+                    <feature.icon size={24} color="var(--primary)" />
+                </div>
+                <h3 style={{ fontSize: isMobile ? '1.5rem' : '2rem', fontWeight: 700, marginBottom: '12px' }}>{feature.title}</h3>
+                <p style={{ fontSize: isMobile ? '0.95rem' : '1.1rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{feature.description}</p>
+            </div>
+            <div style={{ direction: 'ltr', display: 'flex', justifyContent: 'center' }}>
+                {feature.animation}
+            </div>
+        </motion.div>
+    )
+}
+
 export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, theme, toggleTheme }: LandingPageProps) {
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+    const containerRef = useRef<HTMLDivElement>(null)
+    const { scrollYProgress } = useScroll({ target: containerRef, offset: ['start start', 'end end'] })
+
+    // Parallax transforms for various layers
+    const heroBgY      = useTransform(scrollYProgress, [0, 0.3], ['0%', '-40%'])
+    const heroTextX    = useTransform(scrollYProgress, [0, 0.3], ['0px', '60px'])
+    const heroVisualY  = useTransform(scrollYProgress, [0, 0.3], ['0%', '15%'])
+    const featHeadX    = useTransform(scrollYProgress, [0.2, 0.6], ['-60px', '0px'])
+    const featHeadOp   = useTransform(scrollYProgress, [0.2, 0.35], [0, 1])
+
+    // Spring-smoothed values
+    const smoothHeroBgY     = useSpring(heroBgY,     { stiffness: 50, damping: 18 })
+    const smoothHeroTextX   = useSpring(heroTextX,   { stiffness: 60, damping: 22 })
+    const smoothHeroVisualY = useSpring(heroVisualY, { stiffness: 50, damping: 18 })
+    const heroGlow2Y        = useTransform(scrollYProgress, [0, 0.3], ['0%', '-15%'])
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768)
         window.addEventListener('resize', handleResize)
         return () => window.removeEventListener('resize', handleResize)
     }, [])
-
-    const navLinks = [
-        { name: 'About', href: '#features', action: 'scroll' },
-        { name: 'Security', href: '#security', action: 'page', onClick: onViewSecurity },
-        { name: 'FAQ', href: '#faq', action: 'page', onClick: onViewFAQ },
-    ]
 
     const features = [
         {
@@ -287,147 +339,40 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
     ]
 
     return (
-        <div style={{ background: 'transparent', color: 'var(--text-primary)', overflowX: 'hidden' }}>
+        <div ref={containerRef} style={{ background: 'transparent', color: 'var(--text-primary)', overflowX: 'hidden' }}>
 
-            {/* Glassmorphism Navbar */}
-            <nav style={{
-                position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-                width: isMobile ? '90%' : '80%', maxWidth: '1000px',
-                zIndex: 1000,
-                background: 'var(--glass-bg)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '24px',
-                padding: isMobile ? '10px 16px' : '12px 24px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-
-                    {/* Brand */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '10px', cursor: 'pointer' }}>
-                        <div style={{ width: isMobile ? '28px' : '32px', height: isMobile ? '28px' : '32px', background: 'var(--primary)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Shield color="white" size={isMobile ? 16 : 18} />
-                        </div>
-                        <span style={{ fontSize: isMobile ? '1rem' : '1.2rem', fontWeight: 700, letterSpacing: '-0.01em' }}>LexMind</span>
-                    </div>
-
-                    {/* Desktop Links with Hover Animation */}
-                    <div className="desktop-nav" style={{ display: isMobile ? 'none' : 'flex', gap: '8px', alignItems: 'center' }}>
-                        {navLinks.map((link) => (
-                            <motion.a
-                                key={link.name}
-                                href={link.href}
-                                onClick={(e) => {
-                                    if (link.action === 'page' && link.onClick) {
-                                        e.preventDefault();
-                                        link.onClick();
-                                    }
-                                }}
-                                style={{
-                                    position: 'relative', padding: '8px 16px', fontSize: '0.9rem', fontWeight: 500,
-                                    color: 'var(--text-secondary)', textDecoration: 'none', cursor: 'pointer',
-                                    borderRadius: '20px'
-                                }}
-                                whileHover={{ color: 'var(--text-primary)' }}
-                            >
-                                <span style={{ position: 'relative', zIndex: 1 }}>{link.name}</span>
-                                <motion.div
-                                    id="nav-hover"
-                                    layoutId="nav-bg"
-                                    initial={{ opacity: 0 }}
-                                    whileHover={{ opacity: 1 }}
-                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                    style={{
-                                        position: 'absolute', inset: 0, background: 'var(--glass-border)',
-                                        borderRadius: '20px', zIndex: 0
-                                    }}
-                                />
-                            </motion.a>
-                        ))}
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: isMobile ? '8px' : '16px', alignItems: 'center' }}>
-                        {!isMobile && <ThemeToggle theme={theme} toggleTheme={toggleTheme} />}
-
-                        <button
-                            onClick={onGetStarted}
-                            className="btn-primary"
-                            style={{
-                                padding: isMobile ? '6px 14px' : '8px 24px',
-                                fontSize: isMobile ? '0.8rem' : '0.9rem',
-                                borderRadius: '20px',
-                                fontWeight: 600
-                            }}
-                        >
-                            Get Started
-                        </button>
-
-                        {/* Mobile Menu Toggle */}
-                        <button
-                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            style={{
-                                display: isMobile ? 'flex' : 'none',
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--text-primary)',
-                                padding: '4px'
-                            }}
-                        >
-                            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Mobile Dropdown */}
-                <AnimatePresence>
-                    {isMobileMenuOpen && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            style={{ overflow: 'hidden', borderTop: '1px solid var(--border)', marginTop: '12px' }}
-                        >
-                            <div style={{ padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {navLinks.map(link => (
-                                    <a
-                                        key={link.name}
-                                        href={link.href}
-                                        onClick={(e) => {
-                                            setIsMobileMenuOpen(false);
-                                            if (link.action === 'page' && link.onClick) {
-                                                e.preventDefault();
-                                                link.onClick();
-                                            }
-                                        }}
-                                        style={{ color: 'var(--text-primary)', fontWeight: 500, textDecoration: 'none', padding: '8px 4px' }}
-                                    >
-                                        {link.name}
-                                    </a>
-                                ))}
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px', borderTop: '1px solid var(--border)', marginTop: '8px' }}>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Theme</span>
-                                    <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </nav>
+            {/* Reusable Navbar */}
+            <MainNavbar
+                onGetStarted={onGetStarted}
+                onNavigate={(page: string) => {
+                    if (page === 'security') onViewSecurity()
+                    else if (page === 'faq') onViewFAQ()
+                    // If landing, stay here (MainNavbar handles scroll)
+                }}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                currentPage="landing"
+            />
 
             {/* Hero Section */}
             <section style={{
                 minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
                 padding: isMobile ? '100px 20px 40px' : '140px 24px 60px', position: 'relative', overflow: 'hidden'
             }}>
-                {/* Background Glow */}
-                <div style={{ position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)', width: '80vw', height: '60vw', background: 'radial-gradient(circle, rgba(var(--primary-rgb),0.12) 0%, transparent 70%)', filter: 'blur(100px)', zIndex: 0 }} />
+                {/* Parallax Background Glow */}
+                <motion.div style={{ y: smoothHeroBgY, position: 'absolute', top: '20%', left: '50%', translateX: '-50%', width: '80vw', height: '60vw', background: 'radial-gradient(circle, rgba(var(--primary-rgb),0.14) 0%, transparent 70%)', filter: 'blur(100px)', zIndex: 0, willChange: 'transform' }} />
+                {/* Secondary slower glow for depth */}
+                <motion.div style={{ y: heroGlow2Y, position: 'absolute', top: '40%', left: '30%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(var(--primary-rgb),0.06) 0%, transparent 70%)', filter: 'blur(80px)', zIndex: 0 }} />
 
                 <div style={{ maxWidth: '1200px', width: '100%', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: isMobile ? '40px' : '60px', alignItems: 'center', position: 'relative', zIndex: 1 }}>
 
-                    {/* Hero Text */}
-                    <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} style={{ textAlign: isMobile ? 'center' : 'left' }}>
+                    {/* Hero Text — drifts right on scroll */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -30 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        style={{ x: isMobile ? 0 : smoothHeroTextX, textAlign: isMobile ? 'center' : 'left', willChange: 'transform' }}
+                        transition={{ duration: 0.8 }}
+                    >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid var(--primary)', borderRadius: '20px', marginBottom: '20px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary)', marginInline: isMobile ? 'auto' : '0' }}>
                             <Scale size={14} /> Re-inventing Criminal Defense
                         </div>
@@ -453,30 +398,33 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
                         </div>
                     </motion.div>
 
-                    {/* Hero Interaction */}
-                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.8, delay: 0.2 }}>
+                    {/* Hero Interaction — parallax floats upward slower */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        style={{ y: isMobile ? 0 : smoothHeroVisualY, willChange: 'transform' }}
+                        transition={{ duration: 0.8, delay: 0.2 }}
+                    >
                         <HeroInteractiveMap isMobile={isMobile} />
                     </motion.div>
 
                 </div>
             </section>
 
+
             {/* Features Section */}
-            <section id="features" style={{ padding: '80px 24px', background: 'var(--bg-main)' }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gap: '120px' }}>
+            <section id="features" style={{ padding: isMobile ? '50px 16px' : '80px 24px', background: 'var(--bg-main)', overflow: 'hidden' }}>
+                {/* Section heading — parallax on desktop only */}
+                <motion.div
+                    style={{ x: isMobile ? 0 : featHeadX, opacity: isMobile ? 1 : featHeadOp, maxWidth: '1200px', margin: '0 auto 40px', willChange: 'transform, opacity', textAlign: isMobile ? 'center' : 'left', padding: isMobile ? '0 4px' : '0' }}
+                >
+                    <h2 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', fontWeight: 800, marginBottom: '12px' }}>Built for the Modern Courtroom</h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Every tool crafted for speed, clarity and confidentiality.</p>
+                </motion.div>
+
+                <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gap: isMobile ? '60px' : '120px' }}>
                     {features.map((feature, idx) => (
-                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '60px', alignItems: 'center', direction: idx % 2 === 1 ? 'rtl' : 'ltr' }}>
-                            <div style={{ textAlign: isMobile ? 'center' : 'left', direction: 'ltr' }}>
-                                <div style={{ width: '48px', height: '48px', background: feature.gradient, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', marginInline: isMobile ? 'auto' : '0' }}>
-                                    <feature.icon size={24} color="var(--primary)" />
-                                </div>
-                                <h3 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '16px' }}>{feature.title}</h3>
-                                <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{feature.description}</p>
-                            </div>
-                            <div style={{ direction: 'ltr' }}>
-                                {feature.animation}
-                            </div>
-                        </div>
+                        <FeatureCard key={idx} feature={feature} idx={idx} isMobile={isMobile} scrollYProgress={scrollYProgress} />
                     ))}
                 </div>
             </section>
@@ -486,9 +434,18 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
                 <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: '40px' }}>
 
                     <div style={{ maxWidth: '400px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                            <Shield color="var(--primary)" size={24} />
-                            <span style={{ fontSize: '1.4rem', fontWeight: 800 }}>LexMind</span>
+                        <div style={{ marginBottom: '16px' }}>
+                            <img
+                                src={mainLogo}
+                                alt="LexMind"
+                                style={{
+                                    height: '60px',
+                                    width: 'auto',
+                                    mixBlendMode: theme === 'dark' ? 'screen' : 'multiply',
+                                    filter: theme === 'dark' ? 'invert(1) hue-rotate(180deg)' : 'contrast(1.05)',
+                                    opacity: 1
+                                }}
+                            />
                         </div>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
                             We strictly adhere to data privacy laws. Your case data is end-to-end encrypted and we do not sell or leak data to third parties. Built for lawyer-client confidentiality.
@@ -499,16 +456,59 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
                         <div>
                             <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Legal</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.9rem' }}>
-                                <a href="#" onClick={(e) => { e.preventDefault(); onViewSecurity(); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Privacy Policy</a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); onViewSecurity(); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Data Security</a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); onViewFAQ(); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>FAQ</a>
+                                <motion.a
+                                    href="#"
+                                    onClick={(e) => { e.preventDefault(); onViewSecurity(); }}
+                                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', cursor: 'pointer' }}
+                                    whileHover={{ color: 'var(--primary)', x: 4 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    Privacy Policy
+                                </motion.a>
+                                <motion.a
+                                    href="#"
+                                    onClick={(e) => { e.preventDefault(); onViewSecurity(); }}
+                                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', cursor: 'pointer' }}
+                                    whileHover={{ color: 'var(--primary)', x: 4 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    Data Security
+                                </motion.a>
+                                <motion.a
+                                    href="#"
+                                    onClick={(e) => { e.preventDefault(); onViewFAQ(); }}
+                                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', cursor: 'pointer' }}
+                                    whileHover={{ color: 'var(--primary)', x: 4 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    FAQ
+                                </motion.a>
                             </div>
                         </div>
                         <div>
                             <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Product</h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.9rem' }}>
-                                <a href="#features" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Features</a>
-                                <a href="#" onClick={(e) => { e.preventDefault(); onGetStarted(); }} style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>Get Started</a>
+                                <motion.a
+                                    href="#features"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', cursor: 'pointer' }}
+                                    whileHover={{ color: 'var(--primary)', x: 4 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    Features
+                                </motion.a>
+                                <motion.a
+                                    href="#"
+                                    onClick={(e) => { e.preventDefault(); onGetStarted(); }}
+                                    style={{ color: 'var(--text-secondary)', textDecoration: 'none', display: 'inline-block', cursor: 'pointer' }}
+                                    whileHover={{ color: 'var(--primary)', x: 4 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    Get Started
+                                </motion.a>
                             </div>
                         </div>
                     </div>

@@ -35,7 +35,7 @@ Generate draft documents based on the extracted FIR details, saving hours of man
 
 - **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, React Flow (for Mind Maps), Framer Motion (for animations).
 - **Backend**: Node.js, Express.
-- **AI Engine**: Google Gemini (for structured data extraction), n8n (workflow automation).
+- **AI Engine**: Google Gemini 2.5 Flash (for structured data extraction), n8n (workflow automation).
 - **Database & Auth**: Supabase.
 
 ---
@@ -50,18 +50,25 @@ Generate draft documents based on the extracted FIR details, saving hours of man
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/amanyatan/lexmind.git](https://github.com/amanyatan/lexmind.git)
+git clone https://github.com/amanyatan/lexmind.git
 cd lexmind
+```
 
-FRONTEND SET-UP 
+### 2. Frontend Setup
+```bash
 # Install dependencies
 npm install
 
+# Create .env and add Supabase credentials
+# VITE_SUPABASE_URL=your_url
+# VITE_SUPABASE_ANON_KEY=your_key
+
 # Run development server
 npm run dev
+```
 
-BACKEND SET-UP
-
+### 3. Backend Setup
+```bash
 cd backend/server
 
 # Install dependencies
@@ -73,8 +80,13 @@ npm install
 
 # Start the server
 npm start
+```
 
-PROJECT STRUCTURE
+---
+
+## 📁 Project Structure
+
+```text
 ├── backend/
 │   ├── server/           # Main Node.js API (Port 5000)
 │   ├── chatbot/          # Legacy chatbot logic
@@ -86,8 +98,20 @@ PROJECT STRUCTURE
 │   └── types/            # TypeScript definitions
 ├── public/               # Static assets
 └── legallaws/            # Reference JSON data for IPC/CrPC
+```
 
+---
 
+## 🔒 Security & Privacy
+LexMind is built with a focus on data privacy. Documents are processed securely, and sensitive case information is handled according to best practices for legal confidentiality.
 
+---
 
+## 🤝 Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
+## 📄 License
+This project is for educational and professional demonstration purposes. Check [LICENSE](LICENSE) for more details.
+
+---
+*Created with ❤️ for the Legal Community.*
