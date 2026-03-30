@@ -233,7 +233,7 @@ export default function ChatAssistant({ firData, user }: ChatAssistantProps) {
             setMessages(prev => [...prev, { role: 'assistant', content: botResponse }])
         } catch (error: any) {
             console.error("Chat Error:", error)
-            setMessages(prev => [...prev, { role: 'assistant', content: "Backend Connection Failed. Make sure your local server is running on port 5000." }])
+            setMessages(prev => [...prev, { role: 'assistant', content: "Backend Connection Failed. This could be due to a high volume of traffic or the server being offline. Please ensure your backend is correctly configured and the GEMINI_API_KEY is active." }])
         } finally {
             setIsTyping(false)
         }

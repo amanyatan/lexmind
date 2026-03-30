@@ -85,7 +85,7 @@ export default function EvidenceAnalysis({ onDraftFIR }: EvidenceAnalysisProps) 
 
         } catch (err: any) {
             console.error("Evidence Analysis Error:", err);
-            setError(err.message || "Failed to analyze evidence. Make sure your local server is running.");
+            setError(err.message || "Failed to analyze evidence. This could be due to a server connection issue or an inactive API key.");
             setFile(null); // Reset the file so the Dropzone UI returns and shows the error!
         } finally {
             setIsAnalyzing(false);

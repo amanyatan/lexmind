@@ -52,7 +52,7 @@ app.use(handleMulterError);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Helper to get model (allows fallback)
-async function getModel(modelName = 'gemini-2.5-flash') {
+async function getModel(modelName = 'gemini-1.5-flash') {
     try {
         return genAI.getGenerativeModel({
             model: modelName,
@@ -76,7 +76,7 @@ async function getModel(modelName = 'gemini-2.5-flash') {
 // Global model instance
 let model;
 (async () => {
-    model = await getModel('gemini-2.5-flash');
+    model = await getModel('gemini-1.5-flash');
 })();
 
 // ============================================
@@ -141,7 +141,7 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
         ${extractedText}
         `;
 
-        if (!model) model = await getModel('gemini-2.5-flash');
+        if (!model) model = await getModel('gemini-1.5-flash');
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -365,7 +365,7 @@ app.post('/chat', async (req, res) => {
             parts: [{ text: `${systemPrompt}\n\nUser Question: ${message}` }]
         });
 
-        if (!model) model = await getModel('gemini-2.5-flash');
+        if (!model) model = await getModel('gemini-1.5-flash');
 
         // Check if we should use DeepSeek (if Gemini fails or user explicitly has DEEPSEEK_API_KEY)
         if (process.env.DEEPSEEK_API_KEY) {
