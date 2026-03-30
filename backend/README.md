@@ -37,3 +37,6 @@ PORT=5001  # or 5002 for chatbot
 
 ## Running Both Services
 Open two separate terminal windows and run each service in its own terminal.
+
+## PORT Running 
+here port is running in an on 5000
