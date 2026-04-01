@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import pdfParse from 'pdf-parse';
 import dotenv from 'dotenv';
 
@@ -20,15 +19,34 @@ app.use(express.json());
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Initialize Gemini Client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.1
+// Helper to call DeepSeek API
+async function callDeepSeek(messages, model = 'deepseek-chat') {
+    if (!process.env.DEEPSEEK_API_KEY) {
+        throw new Error('DEEPSEEK_API_KEY is missing in your .env file or Vercel environment variables');
     }
-});
+    
+    // Use global fetch (available in newer Node.js / Vercel edge runtime)
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: messages,
+            temperature: 0.1
+        })
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`DeepSeek API Error: ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
 
 // ============================================
 // ENDPOINT 1: PDF/FIR Analysis
@@ -92,9 +110,12 @@ app.post('/api/analyze-fir', upload.single('data'), async (req, res) => {
         ${extractedText}
         `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const messages = [
+            { role: "system", content: "You are a strict legal document validator. Respond purely with JSON." },
+            { role: "user", content: prompt }
+        ];
+
+        const text = await callDeepSeek(messages, 'deepseek-chat');
 
         console.log("Raw AI response length:", text.length);
 
@@ -154,29 +175,14 @@ app.post('/api/chat', async (req, res) => {
         4. If history is provided, maintain context of the conversation.
         `;
 
-        // Format history for Gemini API
-        const contents = history.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
-        }));
+        // Format history for DeepSeek API
+        const messages = [
+            { role: "system", content: systemPrompt },
+            ...history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+            { role: "user", content: message }
+        ];
 
-        // Add current message
-        contents.push({
-            role: 'user',
-            parts: [{ text: `${systemPrompt}\n\nUser Question: ${message}` }]
-        });
-
-        const result = await model.generateContent({
-            contents,
-            generationConfig: {
-                temperature: 0.7, // Higher for chat
-                maxOutputTokens: 1000,
-                responseMimeType: 'text/plain' // Chat usually returns plain text
-            }
-        });
-
-        const response = await result.response;
-        const botResponse = response.text();
+        const botResponse = await callDeepSeek(messages, 'deepseek-chat');
 
         console.log("AI Response generated successfully.");
         res.json({ output: botResponse });
@@ -191,7 +197,7 @@ app.post('/api/chat', async (req, res) => {
 // Health Check
 // ============================================
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'LexMind Backend Running on Vercel (Gemini 2.5 Flash)' });
+    res.json({ status: 'ok', message: 'LexMind Backend Running on Vercel (DeepSeek)' });
 });
 
 export default app;

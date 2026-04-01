@@ -2,9 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const pdfParse = require('pdf-parse');
-// use node-fetch if global fetch is not available (older node versions)
 const fetch = global.fetch || require('node-fetch');
 const fs = require('fs');
 const os = require('os');
@@ -48,36 +46,33 @@ const upload = multer({
 
 app.use(handleMulterError);
 
-// Initialize Gemini Client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Helper to get model (allows fallback)
-async function getModel(modelName = 'gemini-1.5-flash') {
-    try {
-        return genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.1
-            }
-        });
-    } catch (e) {
-        console.warn(`Model ${modelName} not available, falling back to gemini-1.5-flash`);
-        return genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature: 0.1
-            }
-        });
+// Helper to call DeepSeek API
+async function callDeepSeek(messages, model = 'deepseek-chat') {
+    if (!process.env.DEEPSEEK_API_KEY) {
+        throw new Error('DEEPSEEK_API_KEY is missing in your .env file');
     }
-}
+    
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: messages,
+            temperature: 0.1
+        })
+    });
 
-// Global model instance
-let model;
-(async () => {
-    model = await getModel('gemini-1.5-flash');
-})();
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`DeepSeek API Error: ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
 
 // ============================================
 // ENDPOINT 1: PDF/FIR Analysis
@@ -141,13 +136,14 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
         ${extractedText}
         `;
 
-        if (!model) model = await getModel('gemini-1.5-flash');
+        const messages = [
+            { role: "system", content: "You are a strict legal document validator. Respond purely with JSON." },
+            { role: "user", content: prompt }
+        ];
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const text = await callDeepSeek(messages, 'deepseek-chat');
 
-        console.log("Raw AI response length:", text.length);
+        console.log("Raw AI response received.");
 
         // Parse JSON response
         const data = JSON.parse(text);
@@ -173,137 +169,25 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
     }
 });
 
-const { GoogleAIFileManager } = require('@google/generative-ai/server');
-
-// ============================================
-// ENDPOINT 2: Evidence Analysis (Image/Video)
-// ============================================
-app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No media file uploaded' });
-        }
-        
-        console.log(`Analyzing evidence: ${req.file.originalname} (${req.file.mimetype}) - ${req.file.size} bytes`);
-        
-        if (!model) model = await getModel('gemini-1.5-flash');
-
-        const prompt = `
-        You are a highly skilled forensic traffic anaylst and criminal legal expert in India. 
-        Analyze the provided image or video evidence of an accident or crime scene.
-        
-        Determine whose fault it is, exactly what happened, the severity, and what Indian Penal Code (IPC) or Bharatiya Nyaya Sanhita (BNS) sections apply.
-        
-        Respond ONLY with a beautifully structured JSON that matches the following format:
-        {
-            "fault": "Clear statement of who is likely at fault (e.g., The driver of the red car, The pedestrian).",
-            "reasoning": "A highly detailed, step-by-step forensic analysis of what the evidence shows.",
-            "crimeType": "Short category (e.g., Severe Traffic Collision, Hit and Run, Vandalism).",
-            "ipcSections": [
-                "IPC Section 279: Rash driving or riding on a public way",
-                "IPC Section 337: Causing hurt by act endangering life"
-            ]
-        }
-        
-        Do NOT include markdown formatting wrappers like \`\`\`json. Return pure JSON.
-        `;
-
-        // If it's an image and DeepSeek is available, try fallback if Gemini fails
-        const tryDeepSeekImage = async (base64) => {
-            if (!process.env.DEEPSEEK_API_KEY) return null;
-            try {
-                const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}` },
-                    body: JSON.stringify({
-                        model: "deepseek-v3-vision", // If user has access to a vision model!
-                        messages: [{
-                            role: "user",
-                            content: [
-                                { type: "text", text: prompt },
-                                { type: "image_url", image_url: { url: `data:${req.file.mimetype};base64,${base64}` } }
-                            ]
-                        }]
-                    })
-                });
-                if (dsRes.ok) return await dsRes.json();
-            } catch (e) { console.warn("DeepSeek Vision failed:", e); }
-            return null;
-        };
-
-        let mediaPart;
-
+        // DeepSeek doesn't natively support video files or all images easily yet.
+        // We will try sending the image to deepseek-chat (though deepseek-vision is not fully open yet).
+        // If it's a video, we must explicitly throw an error as DeepSeek doesn't support video processing.
         if (req.file.mimetype.startsWith('video/')) {
-            console.log("Video detected. Using Google AI File API...");
-            const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
-            const tempFilePath = path.join(os.tmpdir(), `temp_vid_${Date.now()}_${req.file.originalname}`);
-            
-            // Write to disk temporarily for the SDK
-            fs.writeFileSync(tempFilePath, req.file.buffer);
-            
-            try {
-                const uploadResult = await fileManager.uploadFile(tempFilePath, {
-                    mimeType: req.file.mimetype,
-                    displayName: req.file.originalname,
-                });
-                
-                console.log(`Uploaded to Gemini: ${uploadResult.file.uri}`);
-                
-                // Wait for video processing on Google's servers
-                let fileInfo = await fileManager.getFile(uploadResult.file.name);
-                while (fileInfo.state === "PROCESSING") {
-                    console.log('Waiting for video processing...');
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                    fileInfo = await fileManager.getFile(uploadResult.file.name);
-                }
-                
-                if (fileInfo.state === "FAILED") {
-                    throw new Error("Google AI rejected the video file.");
-                }
-                
-                mediaPart = {
-                    fileData: {
-                        fileUri: uploadResult.file.uri,
-                        mimeType: uploadResult.file.mimeType
-                    }
-                };
-            } finally {
-                // Ensure cleanup
-                if (fs.existsSync(tempFilePath)) {
-                    fs.unlinkSync(tempFilePath);
-                }
-            }
-        } else {
-            // Images use inline data
-            mediaPart = {
-                inlineData: {
-                    data: req.file.buffer.toString("base64"),
-                    mimeType: req.file.mimetype
-                }
-            };
+            throw new Error("DeepSeek API currently does not support direct video file analysis. Please upload an image instead.");
         }
 
-        console.log("Generating analysis from Gemini...");
-        let responseText;
-        try {
-            const result = await model.generateContent([prompt, mediaPart]);
-            responseText = (await result.response).text();
-        } catch (geminiErr) {
-            console.error("Gemini failed, checking for DeepSeek fallback...", geminiErr.message);
-            
-            // If it's an image and Gemini failed (e.g. 429), try DeepSeek
-            if (!req.file.mimetype.startsWith('video/')) {
-                const dsResult = await tryDeepSeekImage(req.file.buffer.toString("base64"));
-                if (dsResult) {
-                    responseText = dsResult.choices[0].message.content;
-                    console.log("DeepSeek fallback successful for image analysis.");
-                } else {
-                    throw geminiErr; // If DS also fails or isn't available, rethrow Gemini error
-                }
-            } else {
-                throw geminiErr; // Video analysis is Gemini-only for now
+        const messages = [
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: prompt },
+                    { type: "image_url", image_url: { url: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}` } }
+                ]
             }
-        }
+        ];
+
+        console.log("Generating analysis from DeepSeek...");
+        const responseText = await callDeepSeek(messages, 'deepseek-chat');
         
         const cleanedText = responseText.replace(/^```(json)?/m, '').replace(/```$/m, '').trim();
 
@@ -353,63 +237,13 @@ app.post('/chat', async (req, res) => {
         4. If history is provided, maintain context of the conversation.
         `;
 
-        // Format history for Gemini API
-        const contents = history.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'model',
-            parts: [{ text: msg.content }]
-        }));
+        const messages = [
+            { role: "system", content: systemPrompt },
+            ...history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+            { role: "user", content: message }
+        ];
 
-        // Add current message
-        contents.push({
-            role: 'user',
-            parts: [{ text: `${systemPrompt}\n\nUser Question: ${message}` }]
-        });
-
-        if (!model) model = await getModel('gemini-1.5-flash');
-
-        // Check if we should use DeepSeek (if Gemini fails or user explicitly has DEEPSEEK_API_KEY)
-        if (process.env.DEEPSEEK_API_KEY) {
-            console.log("DeepSeek API Key found. Attempting DeepSeek as primary/fallback...");
-            try {
-                const deepSeekRes = await fetch('https://api.deepseek.com/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: "deepseek-chat",
-                        messages: [
-                            { role: "system", content: systemPrompt },
-                            ...history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
-                            { role: "user", content: message }
-                        ],
-                        stream: false
-                    })
-                });
-
-                if (deepSeekRes.ok) {
-                    const deepSeekData = await deepSeekRes.json();
-                    console.log("DeepSeek response received successfully.");
-                    return res.json({ output: deepSeekData.choices[0].message.content });
-                }
-                console.warn("DeepSeek API failed, falling back to Gemini...");
-            } catch (dsErr) {
-                console.error("DeepSeek Attempt Error:", dsErr);
-            }
-        }
-
-        const result = await model.generateContent({
-            contents,
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 1000,
-                responseMimeType: 'text/plain'
-            }
-        });
-
-        const response = await result.response;
-        const botResponse = response.text();
+        const botResponse = await callDeepSeek(messages, 'deepseek-chat');
 
         console.log("AI Response generated successfully.");
         res.json({ output: botResponse });
@@ -450,7 +284,7 @@ app.post('/delete-evidence', async (req, res) => {
 // Health Check
 // ============================================
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'LexMind Backend Running (Gemini)' });
+    res.json({ status: 'ok', message: 'LexMind Backend Running (DeepSeek)' });
 });
 
 // Start Server
