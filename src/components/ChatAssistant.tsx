@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, User as UserIcon, Bot, Loader2, Plus, MessageSquare, Trash2, Menu, X, ChevronLeft, Info } from 'lucide-react'
+import { Send, User as UserIcon, Bot, Loader2, Plus, MessageSquare, Trash2, Menu, X, ChevronLeft, Info, Mic, MicOff } from 'lucide-react'
 import axios from 'axios'
 import { supabase } from '../lib/supabase'
 import { CONFIG } from '../config'
@@ -91,7 +91,9 @@ export default function ChatAssistant({ firData, user }: ChatAssistantProps) {
     const [loadingConversations, setLoadingConversations] = useState(true)
     const [deletingId, setDeletingId] = useState<string | null>(null)
     const [activeContext, setActiveContext] = useState<FIRMetadata | null>(firData)
+    const [isListening, setIsListening] = useState(false)
     const scrollRef = useRef<HTMLDivElement>(null)
+    const recognitionRef = useRef<any>(null)
 
     useEffect(() => {
         setActiveContext(firData);
@@ -233,10 +235,49 @@ export default function ChatAssistant({ firData, user }: ChatAssistantProps) {
             setMessages(prev => [...prev, { role: 'assistant', content: botResponse }])
         } catch (error: any) {
             console.error("Chat Error:", error)
-            setMessages(prev => [...prev, { role: 'assistant', content: "Backend Connection Failed. This could be due to a high volume of traffic or the server being offline. Please ensure your backend is correctly configured and the GEMINI_API_KEY is active." }])
+            let errorMessage = "Backend Connection Failed. Make sure your local server is running on port 5000."
+            
+            if (error.response?.status === 500) {
+                errorMessage = "The AI Assistant encountered an internal error. Check if your API keys are valid."
+            } else if (error.message?.includes('database')) {
+                errorMessage = "Database Error. Please ensure the Supabase connection is stable."
+            }
+
+            setMessages(prev => [...prev, { role: 'assistant', content: errorMessage }])
         } finally {
             setIsTyping(false)
         }
+    }
+
+    const toggleMic = () => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        if (!SpeechRecognition) {
+            alert("Speech recognition is not supported in this browser. Please use Chrome.")
+            return
+        }
+
+        if (isListening) {
+            recognitionRef.current?.stop()
+            setIsListening(false)
+            return
+        }
+
+        const recognition = new SpeechRecognition()
+        recognition.lang = 'en-IN' // Supports Indian English/Hindi mix well
+        recognition.continuous = false
+        recognition.interimResults = false
+
+        recognition.onstart = () => setIsListening(true)
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript
+            setInput(prev => prev ? prev + ' ' + transcript : transcript)
+            setIsListening(false)
+        }
+        recognition.onerror = () => setIsListening(false)
+        recognition.onend = () => setIsListening(false)
+
+        recognitionRef.current = recognition
+        recognition.start()
     }
 
     // Auto-trigger an interpretation when arriving from Evidence tool or Vault
@@ -582,7 +623,41 @@ export default function ChatAssistant({ firData, user }: ChatAssistantProps) {
                                     }}
                                     rows={1}
                                 />
+                                {isListening && (
+                                    <motion.div
+                                        animate={{ opacity: [0.3, 1, 0.3], scale: [0.95, 1.05, 0.95] }}
+                                        transition={{ repeat: Infinity, duration: 1.5 }}
+                                        style={{
+                                            position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                                            color: 'var(--primary)', pointerEvents: 'none'
+                                        }}
+                                    >
+                                        <div style={{ padding: '4px 10px', background: 'rgba(var(--primary-rgb), 0.1)', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 800 }}>LISTENING...</div>
+                                    </motion.div>
+                                )}
                             </div>
+                            <button
+                                type="button"
+                                onClick={toggleMic}
+                                style={{
+                                    background: isListening ? '#ef4444' : 'rgba(255, 255, 255, 0.05)',
+                                    color: isListening ? 'white' : 'var(--text-secondary)',
+                                    border: `1px solid ${isListening ? '#ef4444' : 'rgba(255,255,255,0.1)'}`,
+                                    borderRadius: '14px',
+                                    width: '52px', height: '52px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', transition: 'all 0.2s', position: 'relative'
+                                }}
+                            >
+                                {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                                {isListening && (
+                                    <motion.div
+                                        animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                                        transition={{ repeat: Infinity, duration: 1.5 }}
+                                        style={{ position: 'absolute', width: '100%', height: '100%', borderRadius: '14px', border: '2px solid #ef4444' }}
+                                    />
+                                )}
+                            </button>
                             <button
                                 type="submit"
                                 disabled={!input.trim() || isTyping}

@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -7,6 +7,7 @@ const fetch = global.fetch || require('node-fetch');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -46,32 +47,70 @@ const upload = multer({
 
 app.use(handleMulterError);
 
-// Helper to call DeepSeek API
-async function callDeepSeek(messages, model = 'deepseek-chat') {
-    if (!process.env.DEEPSEEK_API_KEY) {
-        throw new Error('DEEPSEEK_API_KEY is missing in your .env file');
-    }
-    
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: model,
-            messages: messages,
-            temperature: 0.1
-        })
-    });
+// Helper to call AI API with Fallback mechanism
+async function callAI(messages, modelId = 'deepseek-chat') {
+    try {
+        if (!process.env.DEEPSEEK_API_KEY) {
+            throw new Error('DEEPSEEK_API_KEY is missing');
+        }
 
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`DeepSeek API Error: ${err}`);
-    }
+        console.log(`[AI] Attempting call with DeepSeek (${modelId})...`);
+        
+        const response = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: modelId,
+                messages: messages,
+                temperature: 0.1
+            })
+        });
 
-    const data = await response.json();
-    return data.choices[0].message.content;
+        if (response.status === 402) {
+            console.warn("⚠️ DeepSeek: Insufficient Balance. Falling back to Gemini...");
+            return await callGeminiFallback(messages);
+        }
+
+        if (!response.ok) {
+            const err = await response.text();
+            console.error(`DeepSeek API Error (${response.status}):`, err);
+            // Fallback for any other API failures
+            return await callGeminiFallback(messages);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+
+    } catch (err) {
+        console.error('[AI Error]:', err.message);
+        return await callGeminiFallback(messages);
+    }
+}
+
+// Fallback to Gemini if DeepSeek fails
+async function callGeminiFallback(messages) {
+    try {
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY missing too.");
+        }
+
+        console.log("[AI] Using Gemini 1.5 Flash as fallback...");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // Using -latest for better compatibility with current v1beta API
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+        
+        // Convert OpenAI message format to Gemini format
+        const prompt = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+        
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+    } catch (gemErr) {
+        console.error("[Fallback Error]:", gemErr.message);
+        throw new Error("Both DeepSeek and Gemini failed. Please check your API keys and balances.");
+    }
 }
 
 // ============================================
@@ -141,7 +180,7 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
             { role: "user", content: prompt }
         ];
 
-        const text = await callDeepSeek(messages, 'deepseek-chat');
+        const text = await callAI(messages, 'deepseek-chat');
 
         console.log("Raw AI response received.");
 
@@ -169,27 +208,47 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
     }
 });
 
-        // DeepSeek doesn't natively support video files or all images easily yet.
-        // We will try sending the image to deepseek-chat (though deepseek-vision is not fully open yet).
-        // If it's a video, we must explicitly throw an error as DeepSeek doesn't support video processing.
-        if (req.file.mimetype.startsWith('video/')) {
-            throw new Error("DeepSeek API currently does not support direct video file analysis. Please upload an image instead.");
+// ============================================
+// ENDPOINT 2: Evidence Analysis
+// ============================================
+app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No media uploaded' });
         }
 
-        const messages = [
-            {
-                role: "user",
-                content: [
-                    { type: "text", text: prompt },
-                    { type: "image_url", image_url: { url: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}` } }
-                ]
-            }
-        ];
+        const prompt = `
+        Analyze this image as potential evidence. Return ONLY a pure JSON object in this exact format:
+        {
+            "crimeType": "Type of crime or accident identified",
+            "fault": "Who appears to be at fault based on the visual evidence",
+            "reasoning": "Detailed visual reasoning for this conclusion",
+            "ipcSections": ["Relevant IPC Section 1", "Relevant IPC Section 2"]
+        }`;
 
-        console.log("Generating analysis from DeepSeek...");
-        const responseText = await callDeepSeek(messages, 'deepseek-chat');
+        // Use Gemini because it natively supports image and video analysis
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is missing. Required for visual/video evidence analysis.");
+        }
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        // Using gemini-2.5-flash as it is fast and supports multi-modal inputs natively
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        console.log("Generating analysis from Gemini...");
         
-        const cleanedText = responseText.replace(/^```(json)?/m, '').replace(/```$/m, '').trim();
+        const response = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    data: req.file.buffer.toString("base64"),
+                    mimeType: req.file.mimetype
+                }
+            }
+        ]);
+        
+        const responseText = response.response.text();
+        const cleanedText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
 
         const data = JSON.parse(cleanedText);
         
@@ -209,88 +268,205 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
     }
 });
 
+// Load legal data for context injection
+let ipcData = [];
+try {
+    const ipcPath = path.join(__dirname, '..', '..', 'legallaws', 'ipc.json');
+    if (fs.existsSync(ipcPath)) {
+        ipcData = JSON.parse(fs.readFileSync(ipcPath, 'utf8'));
+        console.log(`✅ Loaded ${ipcData.length} IPC legal records for Lexmind AI.`);
+    } else {
+        console.warn("⚠️ ipc.json not found. Legal context injection will be limited.");
+    }
+} catch (err) {
+    console.error("❌ Error loading ipc.json:", err.message);
+}
+
+// ============================================
+// ENDPOINT 3: Generic AI Chat (Required by ChatAssistant)
+// ============================================
 app.post('/chat', async (req, res) => {
     try {
-        const { message, history = [], firContext = null } = req.body;
+        const { message, firContext, history = [] } = req.body;
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        console.log("Generating AI response with Gemini...");
+        console.log(`[Chat] Processing message: "${message.substring(0, 50)}..."`);
 
-        // Construct conversation history for Gemini
+        let contextPrompt = "";
+        if (firContext) {
+            contextPrompt = `
+            THE USER IS CURRENTLY CONSULTING ON THIS CASE:
+            FIR Number: ${firContext.firNumber}
+            Location: ${firContext.location}
+            Police Station: ${firContext.policeStation}
+            IPC Sections: ${firContext.sections?.join(', ')}
+            Summary: ${firContext.incidentSummary}
+            `;
+        }
+
         const systemPrompt = `
-        You are LexMind AI, a specialized legal assistant for Indian criminal law. 
-        Your goal is to assist lawyers with case analysis, legal strategy, and procedural questions.
+        You are LexMind AI, a specialized legal assistant focusing on Indian Criminal Law (IPC, CrPC, BNS).
+        Your goal is to provide strategic legal advice, explain complex laws in simple terms, and help users understand their rights.
         
-        ${firContext ? `CONTEXT OF CURRENT CASE BEING ANALYZED:
-        - FIR Number: ${firContext.firNumber}
-        - Sections: ${firContext.sections?.join(', ')}
-        - Accused: ${firContext.accused?.join(', ')}
-        - Summary: ${firContext.incidentSummary}
-        - Strategy already identified: ${firContext.legalStrategy?.join('. ')}` : "No specific case is currently selected."}
+        ${contextPrompt}
 
-        Guidelines:
-        1. Be professional, concise, and legally accurate.
-        2. Reference specific Indian Penal Code (IPC) or Bharatiya Nyaya Sanhita (BNS) sections where applicable.
-        3. Do not give binding legal advice, but provide strategic insights and precedents.
-        4. If history is provided, maintain context of the conversation.
+        Tone: Professional, supportive, and clear.
+        Language: English (with a touch of Hinglish if appropriate for the Indian context, unless the user specifies otherwise).
+        
+        Structure your response with clear headings and bullet points where helpful.
+        Always include a disclaimer that you are an AI assistant and not a replacement for professional legal advice.
         `;
 
         const messages = [
             { role: "system", content: systemPrompt },
-            ...history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+            ...history.slice(-10).map(m => ({ role: m.role, content: m.content })),
             { role: "user", content: message }
         ];
 
-        const botResponse = await callDeepSeek(messages, 'deepseek-chat');
+        // Call AI (using deepseek-chat as configured in this server)
+        const aiResponse = await callAI(messages, 'deepseek-chat');
 
-        console.log("AI Response generated successfully.");
-        res.json({ output: botResponse });
+        res.json({ output: aiResponse });
 
     } catch (err) {
-        console.error('Gemini Chat Error:', err.message);
-        res.status(500).json({ error: "AI Assistant failed to respond. " + err.message });
+        console.error('[Chat Error]:', err);
+        res.status(500).json({ error: "Chat service is currently unavailable. " + err.message });
     }
 });
 
 // ============================================
-// ENDPOINT 4: Delete Evidence
+// ENDPOINT 4: Lexmind AI Chat (Premium)
 // ============================================
-app.post('/delete-evidence', async (req, res) => {
+app.post('/api/lexmind/chat', async (req, res) => {
     try {
-        const { fileUrl } = req.body;
-        if (!fileUrl) return res.status(400).json({ error: 'fileUrl is required' });
-
-        // Security check: only allow deleting from /uploads/
-        if (!fileUrl.includes('/uploads/')) return res.status(403).json({ error: 'Invalid file path' });
-
-        const fileName = fileUrl.split('/').pop();
-        const filePath = path.join(uploadsDir, fileName);
-
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log(`Deleted file: ${fileName}`);
+        const { user_message, language = 'hinglish', history = [] } = req.body;
+        if (!user_message) {
+            return res.status(400).json({ error: 'Message is required' });
         }
 
-        res.json({ success: true });
+        console.log(`[Lexmind] Processing message in ${language}: "${user_message.substring(0, 50)}..."`);
+
+        // 1. Contextual Search (Simple Keyword Match)
+        const keywords = user_message.toLowerCase().split(' ').filter(word => word.length > 3);
+        let relevantContext = "";
+        if (ipcData.length > 0) {
+            const matches = ipcData.filter(item => 
+                keywords.some(kw => item.question.toLowerCase().includes(kw) || item.answer.toLowerCase().includes(kw))
+            ).slice(0, 5); // Limit to top 5 matches
+            
+            if (matches.length > 0) {
+                relevantContext = matches.map(m => `Q: ${m.question}\nA: ${m.answer}`).join('\n\n');
+                console.log(`[Lexmind] Found ${matches.length} relevant legal context segments.`);
+            }
+        }
+
+        // 2. System Prompt
+        const systemPrompt = `
+        You are Lexmind AI, an intelligent Indian legal assistant.
+        Your goal is to help users understand legal issues in simple, calm, and professional language.
+        You must respond in ${language}. 
+        If ${language} is 'hinglish', use a mix of Hindi and English like a typical Indian conversation.
+
+        STRUCTURE OF RESPONSE:
+        Your response MUST be a JSON object with these fields:
+        {
+          "text": "The conversational response to the user",
+          "questions": ["2-3 clarifying questions to understand their case better"],
+          "laws": ["Specific Indian laws or sections applicable"],
+          "explanation": "A very simple explanation of their legal situation",
+          "steps": ["Step-by-step actionable advice"],
+          "risk_level": "Low | Moderate | High | Critical"
+        }
+
+        RULES:
+        - Identify applicable Indian laws (IPC, CRPC, Constitution, etc.)
+        - Never hallucinate laws. Use the provided context if available.
+        - Be supportive, clear, and professional. Not robotic.
+        - Always suggest consulting a real lawyer for serious matters.
+        - If the user is just saying hello, still return the JSON structure but with appropriate content.
+
+        ${relevantContext ? `RELEVANT LEGAL CONTEXT:\n${relevantContext}` : ""}
+        `;
+
+        const messages = [
+            { role: "system", content: systemPrompt },
+            ...history.slice(-5).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: typeof m.content === 'object' ? JSON.stringify(m.content) : m.content })),
+            { role: "user", content: user_message }
+        ];
+
+        const aiResponse = await callAI(messages, 'deepseek-chat');
+        
+        // Clean AI response in case it contains markdown blocks
+        const cleanedJson = aiResponse.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+        const data = JSON.parse(cleanedJson);
+
+        res.json(data);
+
     } catch (err) {
-        console.error("Delete Error:", err);
-        res.status(500).json({ error: "Failed to delete physical file." });
+        console.error('[Lexmind Chat Error]:', err);
+        res.status(500).json({ error: "Lexmind AI is currently unavailable. " + err.message });
     }
 });
 
 // ============================================
-// Health Check
+// ENDPOINT 5: ElevenLabs TTS
 // ============================================
+app.post('/lexmind/tts', async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ error: 'Text is required' });
+
+        const apiKey = process.env.ELEVENLABS_API_KEY;
+        if (!apiKey) throw new Error("ELEVENLABS_API_KEY is missing.");
+
+        const voiceId = "pNInz6obpg8ndclQU7C3"; // A natural, professional voice (can change)
+        
+        console.log(`[TTS] Generating voice for text: "${text.substring(0, 50)}..."`);
+
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+            method: 'POST',
+            headers: {
+                'xi-api-key': apiKey,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                model_id: "eleven_multilingual_v2",
+                voice_settings: {
+                    stability: 0.5,
+                    similarity_boost: 0.75
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`ElevenLabs Error: ${err}`);
+        }
+
+        const audioBuffer = await response.arrayBuffer();
+        res.set('Content-Type', 'audio/mpeg');
+        res.send(Buffer.from(audioBuffer));
+
+    } catch (err) {
+        console.error('[TTS Error]:', err);
+        res.status(500).json({ error: "Voice generation failed." });
+    }
+});
+
+// Health Check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'LexMind Backend Running (DeepSeek)' });
+    res.json({ status: 'ok', message: 'LexMind Backend Running' });
 });
 
 // Start Server
 app.listen(port, '0.0.0.0', () => {
     console.log(`\n🚀 LexMind Backend listening on http://localhost:${port}`);
-    console.log(`   - POST /analyze-fir  → FIR PDF Analysis`);
-    console.log(`   - POST /chat         → AI Chat Assistant`);
-    console.log(`   - GET  /health       → Health Check\n`);
+    console.log(`   - POST /analyze-fir      → FIR PDF Analysis`);
+    console.log(`   - POST /chat             → AI Chat Assistant`);
+    console.log(`   - POST /api/lexmind/chat → Premium Lexmind Chat`);
+    console.log(`   - POST /api/lexmind/tts  → ElevenLabs Voice`);
+    console.log(`   - GET  /health           → Health Check\n`);
 });

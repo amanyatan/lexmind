@@ -34,6 +34,7 @@ import ChatAssistant from './ChatAssistant'
 import FIRHistory from './FIRHistory'
 import EvidenceAnalysis from './EvidenceAnalysis'
 import EvidenceHistory from './EvidenceHistory'
+import LexmindAI from './LexmindAI'
 import { FIRMetadata } from '../types'
 import { useFIRProcessor } from '../hooks/useFIRProcessor'
 import ThemeToggle from './ThemeToggle'
@@ -249,7 +250,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
             {/* Mobile Bottom Navigation */}
             {isMobile && (
                 <div className="mobile-nav">
-                    {navItems.filter(i => ['upload', 'evidence', 'chat'].includes(i.id)).map((item) => (
+                    {navItems.filter(i => ['lexmind', 'upload', 'evidence', 'chat'].includes(i.id)).map((item) => (
                         <button
                             key={item.id}
                             disabled={item.disabled}
@@ -258,7 +259,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                             style={{ opacity: item.disabled ? 0.3 : 1 }}
                         >
                             <item.icon size={24} />
-                            <span style={{ fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>{item.id === 'upload' ? 'Documents' : item.id === 'evidence' ? 'Evidence' : 'AI Chat'}</span>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>{item.id === 'lexmind' ? 'Mahir AI' : item.id === 'upload' ? 'Documents' : item.id === 'evidence' ? 'Evidence' : 'AI Chat'}</span>
                         </button>
                     ))}
                     <button

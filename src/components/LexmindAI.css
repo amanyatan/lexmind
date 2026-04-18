@@ -1,0 +1,454 @@
+.lexmind-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: calc(100vh - 100px);
+    overflow: hidden;
+    color: white;
+    font-family: 'Inter', sans-serif;
+}
+
+.lexmind-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, #1a0b36 0%, #050111 100%);
+    z-index: 0;
+}
+
+.blob {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: linear-gradient(45deg, #4f46e5, #9333ea);
+    filter: blur(80px);
+    opacity: 0.15;
+    border-radius: 50%;
+    animation: rotate 20s linear infinite;
+}
+
+.blob-1 { top: -200px; left: -200px; }
+.blob-2 { bottom: -200px; right: -200px; background: linear-gradient(45deg, #00d4ff, #4f46e5); }
+
+@keyframes rotate {
+    from { transform: rotate(0deg) scale(1); }
+    to { transform: rotate(360deg) scale(1.1); }
+}
+
+.lexmind-layout {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 24px;
+}
+
+.lexmind-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    background: #00d4ff;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00d4ff;
+}
+
+.dot.pulse {
+    animation: dot-pulse 1s infinite alternate;
+}
+
+@keyframes dot-pulse {
+    from { opacity: 0.4; scale: 1; }
+    to { opacity: 1; scale: 1.5; }
+}
+
+.lang-selector {
+    display: flex;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px;
+    border-radius: 12px;
+}
+
+.lang-selector button {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.lang-selector button.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* Avatar Section */
+.lexmind-avatar-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: -60px;
+}
+
+.avatar-halo {
+    width: 140px;
+    height: 140px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.avatar-halo.speaking {
+    border-color: #9333ea;
+    box-shadow: 0 0 40px rgba(147, 51, 234, 0.3);
+}
+
+.avatar-halo.listening {
+    border-color: #00d4ff;
+    box-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+}
+
+.avatar-core {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, #111 0%, #222 100%);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.avatar-eye {
+    position: absolute;
+    top: 40px;
+    width: 6px;
+    height: 6px;
+    background: #00d4ff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00d4ff;
+}
+
+.avatar-eye.left { left: 35px; }
+.avatar-eye.right { right: 35px; }
+
+.avatar-mouth {
+    position: absolute;
+    bottom: 30px;
+    width: 20px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.3);
+    transition: all 0.2s;
+}
+
+.avatar-mouth.active {
+    height: 8px;
+    border-radius: 4px;
+    background: #9333ea;
+    box-shadow: 0 0 10px #9333ea;
+}
+
+.voice-wave {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 24px;
+    height: 40px;
+}
+
+.wave-bar {
+    width: 4px;
+    background: linear-gradient(to top, #4f46e5, #00d4ff);
+    border-radius: 2px;
+}
+
+/* Chat Area */
+.lexmind-chat-content {
+    height: 300px;
+    margin-bottom: 24px;
+    padding: 0 20px;
+}
+
+.messages-scroll {
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 20px;
+}
+
+.messages-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.messages-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.empty-state {
+    text-align: center;
+    margin-top: 40px;
+    opacity: 0.8;
+}
+
+.empty-state h2 { font-size: 1.5rem; margin-bottom: 8px; }
+.empty-state p { font-size: 0.9rem; margin-bottom: 24px; color: rgba(255, 255, 255, 0.6); }
+
+.suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.suggestions button {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.suggestions button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary);
+}
+
+.msg-wrapper {
+    display: flex;
+    width: 100%;
+}
+
+.msg-wrapper.user { justify-content: flex-end; }
+
+.user-text {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 20px;
+    border-radius: 20px 20px 4px 20px;
+    max-width: 80%;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.assistant-card {
+    width: 100%;
+    padding: 24px;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.assistant-card.glass {
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.primary-text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+.law-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.law-tag {
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    color: #4df9ff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.structured-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.structured-info details {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.structured-info summary {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0.8;
+}
+
+.structured-info details[open] summary {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 8px;
+    opacity: 1;
+}
+
+.structured-info p, .structured-info ul {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.5;
+}
+
+.risk-indicator {
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0 12px 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.85rem;
+}
+
+/* Controls */
+.lexmind-controls {
+    padding: 0 20px 20px;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.input-group.glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+}
+
+.input-group input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 12px 0;
+    font-size: 1rem;
+    outline: none;
+}
+
+.mic-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.mic-btn.active {
+    background: #00d4ff;
+    color: black;
+    border-color: #00d4ff;
+}
+
+.mic-glow {
+    position: absolute;
+    inset: -5px;
+    background: #00d4ff;
+    border-radius: 50%;
+    filter: blur(15px);
+    opacity: 0.5;
+    z-index: -1;
+    animation: mic-pulse 1.5s infinite;
+}
+
+@keyframes mic-pulse {
+    0% { scale: 1; opacity: 0.4; }
+    50% { scale: 1.2; opacity: 0.6; }
+    100% { scale: 1; opacity: 0.4; }
+}
+
+.send-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.send-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.send-btn:hover:not(:disabled) {
+    background: #00a8cc;
+}
+
+@media (max-width: 768px) {
+    .lexmind-layout { padding: 16px; }
+    .avatar-halo { width: 100px; height: 100px; }
+    .avatar-core { width: 80px; height: 80px; }
+    .avatar-eye { top: 30px; }
+    .avatar-eye.left { left: 25px; }
+    .avatar-eye.right { right: 25px; }
+    .lexmind-chat-content { height: 250px; }
+}

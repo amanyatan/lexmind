@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
+// 👇 Switch to '../assets/logo.png' once you copy .vscode/logo.png → src/assets/logo.png
 import logo from '../assets/logo.svg'
 
 interface MainNavbarProps {
@@ -75,12 +76,10 @@ export default function MainNavbar({ onGetStarted, onNavigate, theme, toggleThem
                 >
                     <img
                         src={logo}
-                        alt="LexMind"
+                        alt="Mahir AI"
                         style={{
-                            height: isMobile ? '36px' : '42px',
+                            height: isMobile ? '32px' : '38px',
                             width: 'auto',
-                            mixBlendMode: theme === 'dark' ? 'screen' : 'multiply',
-                            filter: theme === 'dark' ? 'invert(1) hue-rotate(180deg)' : 'contrast(1.1)',
                             display: 'block',
                             opacity: 1
                         }}
