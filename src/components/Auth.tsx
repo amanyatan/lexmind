@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { Mail, Lock, Loader2, Eye, EyeOff, User as UserIcon, ArrowLeft, Check, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import logo from '../assets/logo.svg'
+import logo from '../assets/logo.png'
 
 interface AuthProps {
     onBack?: () => void;

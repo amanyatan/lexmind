@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 // 👇 Switch to '../assets/logo.png' once you copy .vscode/logo.png → src/assets/logo.png
-import logo from '../assets/logo.svg'
+import logo from '../assets/logo.png'
 
 interface MainNavbarProps {
     onGetStarted: () => void

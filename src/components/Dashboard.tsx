@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import logo from '../assets/logo.png'
+
 import { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import {
@@ -144,7 +146,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                         {!isCollapsed && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <div className="logo-box">
-                                    <Scale color="white" size={24} />
+                                    <img src={logo} alt="LexMind" style={{ height: '24px', width: 'auto' }} />
                                 </div>
                                 <span className="logo-text">LexMind</span>
                             </div>
