@@ -97,16 +97,38 @@ async function callGeminiFallback(messages) {
             throw new Error("GEMINI_API_KEY missing too.");
         }
 
-        console.log("[AI] Using Gemini 1.5 Flash as fallback...");
+        console.log("[AI] Searching for a working Gemini model...");
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Using -latest for better compatibility with current v1beta API
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         
-        // Convert OpenAI message format to Gemini format
-        const prompt = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-        
-        const result = await model.generateContent(prompt);
-        return result.response.text();
+        // Try these models in order (using the specific cutting-edge models available to this key)
+        const modelsToTry = [
+            "gemini-2.5-flash", 
+            "gemini-2.5-pro",
+            "gemini-2.0-flash", 
+            "gemini-1.5-flash", 
+            "gemini-pro"
+        ];
+        let lastError = "";
+
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`[AI] Trying Gemini model: ${modelName}...`);
+                const model = genAI.getGenerativeModel({ model: modelName });
+                const prompt = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                if (text) {
+                    console.log(`✅ Success with Gemini model: ${modelName}`);
+                    return text;
+                }
+            } catch (err) {
+                lastError = err.message;
+                console.warn(`⚠️ Model ${modelName} failed: ${err.message}`);
+                continue;
+            }
+        }
+
+        throw new Error(`All Gemini models failed. Last error: ${lastError}`);
     } catch (gemErr) {
         console.error("[Fallback Error]:", gemErr.message);
         throw new Error("Both DeepSeek and Gemini failed. Please check your API keys and balances.");
