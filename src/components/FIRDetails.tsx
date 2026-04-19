@@ -30,6 +30,7 @@ export default function FIRDetails({ data }: FIRDetailsProps) {
         { id: 'entities', label: 'Entities', icon: User },
         { id: 'timeline', label: 'Timeline', icon: Clock },
         { id: 'strategy', label: 'Legal Strategy', icon: Shield },
+        
     ]
 
     return (

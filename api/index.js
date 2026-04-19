@@ -3,6 +3,7 @@ import cors from 'cors';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
 import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 dotenv.config();
 
@@ -26,7 +27,7 @@ async function callDeepSeek(messages, model = 'deepseek-chat') {
     }
     
     // Use global fetch (available in newer Node.js / Vercel edge runtime)
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -46,6 +47,39 @@ async function callDeepSeek(messages, model = 'deepseek-chat') {
 
     const data = await response.json();
     return data.choices[0].message.content;
+}
+
+// Fallback logic for Gemini
+async function callGeminiFallback(messages) {
+    try {
+        if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY missing");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const models = ["gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-pro"];
+        
+        for (const modelName of models) {
+            try {
+                const model = genAI.getGenerativeModel({ model: modelName });
+                const prompt = messages.map(m => {
+                    const content = typeof m.content === 'object' ? JSON.stringify(m.content) : m.content;
+                    return `${m.role.toUpperCase()}: ${content}`;
+                }).join('\n\n');
+                const result = await model.generateContent(prompt);
+                return result.response.text();
+            } catch (e) { continue; }
+        }
+        throw new Error("All Gemini models failed");
+    } catch (err) {
+        throw new Error("Fallback failed: " + err.message);
+    }
+}
+
+async function callAI(messages) {
+    try {
+        return await callDeepSeek(messages);
+    } catch (err) {
+        console.error("DeepSeek failed, falling back to Gemini:", err.message);
+        return await callGeminiFallback(messages);
+    }
 }
 
 // ============================================
@@ -178,11 +212,14 @@ app.post('/api/chat', async (req, res) => {
         // Format history for DeepSeek API
         const messages = [
             { role: "system", content: systemPrompt },
-            ...history.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+            ...history.map(m => ({ 
+                role: m.role === 'user' ? 'user' : 'assistant', 
+                content: typeof m.content === 'object' ? (m.content.text || JSON.stringify(m.content)) : m.content 
+            })),
             { role: "user", content: message }
         ];
 
-        const botResponse = await callDeepSeek(messages, 'deepseek-chat');
+        const botResponse = await callAI(messages);
 
         console.log("AI Response generated successfully.");
         res.json({ output: botResponse });

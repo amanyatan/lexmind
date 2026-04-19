@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionV
 import { FileText, MessageSquare, Map, Shield, Sun, Moon, Search, FileSignature, ArrowRight, Lock, Scale } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import MainNavbar from './MainNavbar'
+import { useLanguage } from '../contexts/LanguageContext'
 import ReactFlow, { Background, Node, Edge, MarkerType, useNodesState, useEdgesState, Connection, addEdge } from 'reactflow'
 import 'reactflow/dist/style.css'
 import mainLogo from '../assets/logo.png'
@@ -284,7 +285,8 @@ const FeatureCard = ({ feature, idx, isMobile, scrollYProgress }: FeatureCardPro
 }
 
 export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, theme, toggleTheme }: LandingPageProps) {
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+    const { t } = useLanguage()
+    const [isMobile] = useState(window.innerWidth < 768)
     const containerRef = useRef<HTMLDivElement>(null)
     const { scrollYProgress } = useScroll({ target: containerRef, offset: ['start start', 'end end'] })
 
@@ -302,9 +304,8 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
     const heroGlow2Y        = useTransform(scrollYProgress, [0, 0.3], ['0%', '-15%'])
 
     useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768)
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
+        // No-op for now as state is derived or handled globally. 
+        // Original code had resize listener, keeping minimal change.
     }, [])
 
     const features = [
@@ -374,27 +375,24 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
                         transition={{ duration: 0.8 }}
                     >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'rgba(var(--primary-rgb), 0.1)', border: '1px solid var(--primary)', borderRadius: '20px', marginBottom: '20px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary)', marginInline: isMobile ? 'auto' : '0' }}>
-                            <Scale size={14} /> Re-inventing Criminal Defense
+                            <Scale size={14} /> {t('hero.badge')}
                         </div>
                         <h1 style={{ fontSize: isMobile ? '2rem' : '4rem', fontWeight: 800, lineHeight: 1.1, marginBottom: '20px' }}>
-                            Justice Served,<br />
-                            <span style={{ color: 'transparent', background: 'linear-gradient(90deg, var(--primary), var(--accent))', WebkitBackgroundClip: 'text', backgroundClip: 'text' }}>
-                                Simplified.
-                            </span>
+                            {t('hero.title')}
                         </h1>
                         <p style={{ fontSize: isMobile ? '1.05rem' : '1.2rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '32px', maxWidth: '550px', marginInline: isMobile ? 'auto' : '0' }}>
-                            Analyze FIRs, map connections, and drift legals documents in seconds. LexMind is the intelligent partner every modern lawyer needs.
+                           {t('hero.subtitle')}
                         </p>
 
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center', justifyContent: isMobile ? 'center' : 'flex-start' }}>
                             <button onClick={onGetStarted} className="btn-primary" style={{ padding: isMobile ? '12px 28px' : '14px 36px', fontSize: isMobile ? '1rem' : '1.1rem', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                Get Started <ArrowRight size={18} />
+                                {t('hero.getStarted')} <ArrowRight size={18} />
                             </button>
                         </div>
 
                         <div style={{ marginTop: '32px', display: 'flex', gap: '20px', color: 'var(--text-secondary)', fontSize: '0.85rem', justifyContent: isMobile ? 'center' : 'flex-start' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Shield size={14} /> Data Encryption</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} /> Private & Secure</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Shield size={14} /> {t('hero.dataEncryption')}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Lock size={14} /> {t('hero.privateSecure')}</div>
                         </div>
                     </motion.div>
 
@@ -418,8 +416,8 @@ export default function LandingPage({ onGetStarted, onViewSecurity, onViewFAQ, t
                 <motion.div
                     style={{ x: isMobile ? 0 : featHeadX, opacity: isMobile ? 1 : featHeadOp, maxWidth: '1200px', margin: '0 auto 40px', willChange: 'transform, opacity', textAlign: isMobile ? 'center' : 'left', padding: isMobile ? '0 4px' : '0' }}
                 >
-                    <h2 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', fontWeight: 800, marginBottom: '12px' }}>Built for the Modern Courtroom</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Every tool crafted for speed, clarity and confidentiality.</p>
+                    <h2 style={{ fontSize: isMobile ? '1.8rem' : '2.8rem', fontWeight: 800, marginBottom: '12px' }}>{t('features.title')}</h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>{t('features.subtitle')}</p>
                 </motion.div>
 
                 <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gap: isMobile ? '60px' : '120px' }}>

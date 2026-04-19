@@ -41,6 +41,7 @@ import { FIRMetadata } from '../types'
 import { useFIRProcessor } from '../hooks/useFIRProcessor'
 import ThemeToggle from './ThemeToggle'
 import CircularProgressWithLabel from './CircularProgressWithLabel'
+import { useLanguage } from '../contexts/LanguageContext'
 import './Dashboard.css'
 
 interface DashboardProps {
@@ -50,6 +51,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) {
+    const { t } = useLanguage()
     const [activeTab, setActiveTab] = useState<'upload' | 'evidence' | 'evidence_history' | 'details' | 'mindmap' | 'drafting' | 'chat' | 'history' | 'profile'>('upload')
     const [firData, setFirData] = useState<FIRMetadata | null>(null)
     const [isCollapsed, setIsCollapsed] = useState(false)
@@ -96,15 +98,15 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
     })
 
     const navItems = [
-        { id: 'upload', label: 'Upload FIR', icon: Upload },
-        { id: 'history', label: 'Past Cases', icon: History },
-        { id: 'evidence', label: 'Evidence Tool', icon: FileText },
-        { id: 'evidence_history', label: 'Evidence Vault', icon: Database },
-        { id: 'details', label: 'Analysis', icon: FileText, disabled: !firData },
-        { id: 'mindmap', label: 'Map', icon: MapIcon, disabled: !firData },
-        { id: 'drafting', label: 'Draft', icon: Layout, disabled: !firData },
-        { id: 'chat', label: 'AI Chat', icon: MessageSquare },
-        { id: 'profile', label: 'Profile', icon: UserIcon },
+        { id: 'upload', label: t('dashboard.uploadFIR'), icon: Upload },
+        { id: 'history', label: t('dashboard.pastCases'), icon: History },
+        { id: 'evidence', label: t('dashboard.evidenceTool'), icon: FileText },
+        { id: 'evidence_history', label: t('dashboard.evidenceVault'), icon: Database },
+        { id: 'details', label: t('dashboard.analysis'), icon: FileText, disabled: !firData },
+        { id: 'mindmap', label: t('dashboard.map'), icon: MapIcon, disabled: !firData },
+        { id: 'drafting', label: t('dashboard.draft'), icon: Layout, disabled: !firData },
+        { id: 'chat', label: t('dashboard.aiChat'), icon: MessageSquare },
+        { id: 'profile', label: t('dashboard.profile'), icon: UserIcon },
     ]
 
     const userMetadata = user.user_metadata || {};
@@ -228,7 +230,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
 
                     <div className="sidebar-footer" style={{ padding: isCollapsed ? '16px 8px' : '16px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center' }}>
-                            {!isCollapsed && <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Theme</span>}
+                            {!isCollapsed && <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('dashboard.theme')}</span>}
                             <ThemeToggle theme={theme} toggleTheme={toggleTheme} size={isCollapsed ? 'small' : 'medium'} />
                         </div>
 
@@ -243,7 +245,7 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                             }}
                         >
                             <LogOut size={20} />
-                            {!isCollapsed && <span>Logout</span>}
+                            {!isCollapsed && <span>{t('dashboard.logout')}</span>}
                         </button>
                     </div>
                 </motion.div>
@@ -368,9 +370,9 @@ export default function Dashboard({ user, theme, toggleTheme }: DashboardProps) 
                         >
                             <div style={{ marginBottom: '32px' }}>
                                 <h1 style={{ fontSize: '2.5rem', marginBottom: '8px' }}>
-                                    Welcome, {user.user_metadata?.full_name?.split(' ')[0] || 'Counselor'}
+                                    {t('dashboard.welcome')}, {user.user_metadata?.full_name?.split(' ')[0] || 'Counselor'}
                                 </h1>
-                                <p style={{ color: 'var(--text-secondary)' }}>Upload a FIR PDF to start the analysis and mind-mapping process.</p>
+                                <p style={{ color: 'var(--text-secondary)' }}>{t('dashboard.uploadSubtitle')}</p>
                             </div>
 
                             <div

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
-import ThemeToggle from './ThemeToggle'
-// 👇 Switch to '../assets/logo.png' once you copy .vscode/logo.png → src/assets/logo.png
 import logo from '../assets/logo.png'
+import LanguageToggle from './LanguageToggle'
+import ThemeToggle from './ThemeToggle'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface MainNavbarProps {
     onGetStarted: () => void
@@ -14,6 +15,7 @@ interface MainNavbarProps {
 }
 
 export default function MainNavbar({ onGetStarted, onNavigate, theme, toggleTheme, currentPage }: MainNavbarProps) {
+    const { t } = useLanguage()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
@@ -48,10 +50,10 @@ export default function MainNavbar({ onGetStarted, onNavigate, theme, toggleThem
     }
 
     const navLinks = [
-        { name: 'Home', target: 'landing', action: 'page' },
-        { name: 'About', target: 'features', action: 'scroll' },
-        { name: 'Security', target: 'security', action: 'page' },
-        { name: 'FAQ', target: 'faq', action: 'page' },
+        { name: t('nav.home'), target: 'landing', action: 'page' },
+        { name: t('nav.about'), target: 'features', action: 'scroll' },
+        { name: t('nav.security'), target: 'security', action: 'page' },
+        { name: t('nav.faq'), target: 'faq', action: 'page' },
     ]
 
     return (
@@ -130,6 +132,7 @@ export default function MainNavbar({ onGetStarted, onNavigate, theme, toggleThem
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: isMobile ? '8px' : '16px', alignItems: 'center' }}>
+                    {!isMobile && <LanguageToggle />}
                     {!isMobile && <ThemeToggle theme={theme} toggleTheme={toggleTheme} />}
 
                     <button
@@ -142,7 +145,7 @@ export default function MainNavbar({ onGetStarted, onNavigate, theme, toggleThem
                             fontWeight: 600
                         }}
                     >
-                        Get Started
+                        {t('nav.getStarted')}
                     </button>
 
                     {/* Mobile Menu Toggle */}
@@ -187,6 +190,10 @@ export default function MainNavbar({ onGetStarted, onNavigate, theme, toggleThem
                                 </div>
                             ))}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 8px', borderTop: '1px solid var(--border)', marginTop: '8px' }}>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('common.language')}</span>
+                                <LanguageToggle />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 8px' }}>
                                 <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Theme</span>
                                 <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
                             </div>

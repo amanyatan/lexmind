@@ -5,7 +5,7 @@ async function testKey() {
     try {
         console.log('Testing key:', process.env.GEMINI_API_KEY.substring(0, 10) + '...');
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const result = await model.generateContent("Hi");
         console.log('Success! Response:', result.response.text());
     } catch (err) {

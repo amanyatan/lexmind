@@ -47,93 +47,40 @@ const upload = multer({
 
 app.use(handleMulterError);
 
-// Helper to call AI API with Fallback mechanism
-async function callAI(messages, modelId = 'deepseek-chat') {
+// Helper to call AI API directly with Gemini
+async function callAI(messages, modelId = 'gemini-2.5-flash', isJsonMode = false) {
     try {
-        if (!process.env.DEEPSEEK_API_KEY) {
-            throw new Error('DEEPSEEK_API_KEY is missing');
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("GEMINI_API_KEY is missing");
         }
 
-        console.log(`[AI] Attempting call with DeepSeek (${modelId})...`);
+        console.log(`[AI] Attempting call with Gemini (${modelId}, JSON=${isJsonMode})...`);
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: modelId,
-                messages: messages,
-                temperature: 0.1
-            })
+        const generationConfig = {};
+        if (isJsonMode) {
+            generationConfig.responseMimeType = "application/json";
+        }
+
+        const model = genAI.getGenerativeModel({ 
+            model: modelId,
+            generationConfig
         });
-
-        if (response.status === 402) {
-            console.warn("⚠️ DeepSeek: Insufficient Balance. Falling back to Gemini...");
-            return await callGeminiFallback(messages);
-        }
-
-        if (!response.ok) {
-            const err = await response.text();
-            console.error(`DeepSeek API Error (${response.status}):`, err);
-            // Fallback for any other API failures
-            return await callGeminiFallback(messages);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
+        
+        const prompt = messages.map(m => {
+            const content = typeof m.content === 'object' ? JSON.stringify(m.content) : m.content;
+            return `${m.role.toUpperCase()}: ${content}`;
+        }).join('\n\n');
+        
+        const result = await model.generateContent(prompt);
+        return result.response.text();
 
     } catch (err) {
         console.error('[AI Error]:', err.message);
-        return await callGeminiFallback(messages);
+        throw new Error(`AI generation failed: ${err.message}`);
     }
 }
 
-// Fallback to Gemini if DeepSeek fails
-async function callGeminiFallback(messages) {
-    try {
-        if (!process.env.GEMINI_API_KEY) {
-            throw new Error("GEMINI_API_KEY missing too.");
-        }
-
-        console.log("[AI] Searching for a working Gemini model...");
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        
-        // Try these models in order (using the specific cutting-edge models available to this key)
-        const modelsToTry = [
-            "gemini-2.5-flash", 
-            "gemini-2.5-pro",
-            "gemini-2.0-flash", 
-            "gemini-1.5-flash", 
-            "gemini-pro"
-        ];
-        let lastError = "";
-
-        for (const modelName of modelsToTry) {
-            try {
-                console.log(`[AI] Trying Gemini model: ${modelName}...`);
-                const model = genAI.getGenerativeModel({ model: modelName });
-                const prompt = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                if (text) {
-                    console.log(`✅ Success with Gemini model: ${modelName}`);
-                    return text;
-                }
-            } catch (err) {
-                lastError = err.message;
-                console.warn(`⚠️ Model ${modelName} failed: ${err.message}`);
-                continue;
-            }
-        }
-
-        throw new Error(`All Gemini models failed. Last error: ${lastError}`);
-    } catch (gemErr) {
-        console.error("[Fallback Error]:", gemErr.message);
-        throw new Error("Both DeepSeek and Gemini failed. Please check your API keys and balances.");
-    }
-}
 
 // ============================================
 // ENDPOINT 1: PDF/FIR Analysis
@@ -202,7 +149,7 @@ app.post('/analyze-fir', upload.single('data'), async (req, res) => {
             { role: "user", content: prompt }
         ];
 
-        const text = await callAI(messages, 'deepseek-chat');
+        const text = await callAI(messages, 'gemini-2.5-flash', true);
 
         console.log("Raw AI response received.");
 
@@ -254,10 +201,13 @@ app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
         }
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Using gemini-2.5-flash as it is fast and supports multi-modal inputs natively
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-        console.log("Generating analysis from Gemini...");
+        
+        const modelName = "gemini-2.5-flash";
+        console.log(`[Evidence] Processing with Gemini model: ${modelName}...`);
+        const model = genAI.getGenerativeModel({ 
+            model: modelName,
+            generationConfig: { responseMimeType: "application/json" }
+        });
         
         const response = await model.generateContent([
             prompt,
@@ -268,6 +218,10 @@ app.post('/analyze-evidence', upload.single('media'), async (req, res) => {
                 }
             }
         ]);
+        
+        if (!response) {
+            throw new Error(`Gemini model failed to process evidence.`);
+        }
         
         const responseText = response.response.text();
         const cleanedText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
@@ -343,12 +297,15 @@ app.post('/chat', async (req, res) => {
 
         const messages = [
             { role: "system", content: systemPrompt },
-            ...history.slice(-10).map(m => ({ role: m.role, content: m.content })),
+            ...history.slice(-10).map(m => ({ 
+                role: m.role, 
+                content: typeof m.content === 'object' ? (m.content.text || JSON.stringify(m.content)) : m.content 
+            })),
             { role: "user", content: message }
         ];
 
-        // Call AI (using deepseek-chat as configured in this server)
-        const aiResponse = await callAI(messages, 'deepseek-chat');
+        // Call AI (using gemini-2.5-flash as configured in this server)
+        const aiResponse = await callAI(messages, 'gemini-2.5-flash');
 
         res.json({ output: aiResponse });
 
@@ -418,7 +375,7 @@ app.post('/api/lexmind/chat', async (req, res) => {
             { role: "user", content: user_message }
         ];
 
-        const aiResponse = await callAI(messages, 'deepseek-chat');
+        const aiResponse = await callAI(messages, 'gemini-2.5-flash', true);
         
         // Clean AI response in case it contains markdown blocks
         const cleanedJson = aiResponse.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();

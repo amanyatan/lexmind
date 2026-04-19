@@ -1,26 +1,20 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const key = 'AIzaSyAT8yysmFYNoCBmnhfTo2HTd0QgGp-r2yA';
+require('dotenv').config({ path: './backend/server/.env' });
 
-async function list() {
+async function listModels() {
     try {
-        const genAI = new GoogleGenerativeAI(key);
-        // The SDK doesn't have a direct listModels in the main export often, but we can check the API
-        console.log("Checking model availability...");
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-        const result = await model.generateContent("hi");
-        console.log("Success with gemini-pro!");
-        console.log(result.response.text());
-    } catch (err) {
-        console.error("Gemini-pro failed:", err.message);
-        
-        try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const result = await model.generateContent("hi");
-            console.log("Success with gemini-1.5-flash!");
-        } catch (err2) {
-             console.error("Gemini-1.5-flash failed:", err2.message);
+        console.log('Listing models for key...');
+        // Standard fetch for listModels as SDK might hide details
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`);
+        const data = await response.json();
+        if (data.models) {
+            console.log('Available Models:', data.models.map(m => m.name).join(', '));
+        } else {
+            console.log('No models found:', data);
         }
+    } catch (err) {
+        console.error('FAILED:', err.message);
     }
 }
 
-list();
+listModels();
