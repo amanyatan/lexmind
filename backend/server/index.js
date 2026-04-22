@@ -440,6 +440,16 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', message: 'LexMind Backend Running' });
 });
 
+// Serve frontend dist directory if it exists, providing SPA routing
+const distDir = path.join(__dirname, '..', '..', 'dist');
+if (fs.existsSync(distDir)) {
+    console.log(`\n📦 Serving frontend static files from: ${distDir}`);
+    app.use(express.static(distDir));
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(distDir, 'index.html'));
+    });
+}
+
 // Start Server
 app.listen(port, '0.0.0.0', () => {
     console.log(`\n🚀 LexMind Backend listening on http://localhost:${port}`);
